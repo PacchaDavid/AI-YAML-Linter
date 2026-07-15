@@ -1,0 +1,17 @@
+{
+  "name": "yaml-lint",
+  "version": "1.0.0",
+  "description": "YAML configuration linter with LLM-assisted explanations - Microservices architecture",
+  "private": true,
+  "scripts": {
+    "install:all": "cd services/lexer && npm install && cd ../parser && npm install && cd ../semantic-analyzer && npm install && cd ../explainer && npm install && cd ../orchestrator && npm install && cd ../../cli && npm install",
+    "build:all": "cd services/lexer && npx tsc && cd ../parser && npx tsc && cd ../semantic-analyzer && npx tsc && cd ../explainer && npx tsc && cd ../orchestrator && npx tsc && cd ../../cli && npx tsc",
+    "test:all": "cd services/lexer && npx vitest run && cd ../parser && npx vitest run && cd ../semantic-analyzer && npx vitest run && cd ../explainer && npx vitest run && cd ../orchestrator && npx vitest run",
+    "test:e2e": "cd tests && npm install && npx vitest run",
+    "typecheck:all": "cd services/lexer && npx tsc --noEmit && cd ../parser && npx tsc --noEmit && cd ../semantic-analyzer && npx tsc --noEmit && cd ../explainer && npx tsc --noEmit && cd ../orchestrator && npx tsc --noEmit && cd ../../cli && npx tsc --noEmit",
+    "docker:up": "docker compose up --build -d",
+    "docker:down": "docker compose down",
+    "docker:logs": "docker compose logs -f",
+    "lint": "cd cli && npx tsx src/index.ts --file"
+  }
+}

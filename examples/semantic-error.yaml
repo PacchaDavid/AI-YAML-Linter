@@ -1,0 +1,5 @@
+# Sample with semantic errors
+name: test
+port: 99999     # Out of range (max 65535)
+debug: maybe    # Not a boolean
+count: hello    # Expected number

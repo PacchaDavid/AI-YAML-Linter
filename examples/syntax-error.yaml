@@ -1,0 +1,4 @@
+# Sample with syntax errors (missing colon)
+name: test
+server
+  port: 8080

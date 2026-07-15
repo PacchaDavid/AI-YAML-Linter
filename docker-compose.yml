@@ -1,0 +1,186 @@
+services:
+  redis:
+    image: redis:7-alpine
+    container_name: yaml-lint-redis
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - yaml-lint-net
+
+  ollama:
+    image: ollama/ollama:latest
+    container_name: yaml-lint-ollama
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_data:/root/.ollama
+    entrypoint: >
+      sh -c "
+      echo '[Ollama] Starting server...' &&
+      ollama serve &
+      sleep 3 &&
+      echo '[Ollama] Pulling model llama3.2...' &&
+      echo '[Ollama] Pulling model qwen:0.5b...' &&
+      ollama pull qwen:0.5b &&
+      ollama rm llama3.2 2>/dev/null || true &&
+      echo '[Ollama] Ready!' &&
+      tail -f /dev/null
+      "
+    healthcheck:
+      test: ["CMD-SHELL", "ollama list | grep -q 'qwen:0.5b'"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 60s
+    networks:
+      - yaml-lint-net
+
+  lexer:
+    build:
+      context: .
+      dockerfile: services/lexer/Dockerfile
+    container_name: yaml-lint-lexer
+    ports:
+      - "4001:4001"
+    environment:
+      - PORT=4001
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4001/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yaml-lint-net
+
+  parser:
+    build:
+      context: .
+      dockerfile: services/parser/Dockerfile
+    container_name: yaml-lint-parser
+    ports:
+      - "4002:4002"
+    environment:
+      - PORT=4002
+    depends_on:
+      lexer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4002/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yaml-lint-net
+
+  semantic-analyzer:
+    build:
+      context: .
+      dockerfile: services/semantic-analyzer/Dockerfile
+    container_name: yaml-lint-semantic
+    ports:
+      - "4003:4003"
+    environment:
+      - PORT=4003
+    depends_on:
+      parser:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4003/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yaml-lint-net
+
+  explainer:
+    build:
+      context: .
+      dockerfile: services/explainer/Dockerfile
+    container_name: yaml-lint-explainer
+    ports:
+      - "4004:4004"
+    environment:
+      - PORT=4004
+      - REDIS_URL=redis://redis:6379
+      - OLLAMA_URL=http://ollama:11434
+      - OLLAMA_MODEL=qwen:0.5b
+      - CIRCUIT_BREAKER_TIMEOUT=120000
+      - CIRCUIT_BREAKER_MAX_FAILURES=5
+      - CIRCUIT_BREAKER_RESET_TIMEOUT=30000
+    depends_on:
+      redis:
+        condition: service_healthy
+      ollama:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4004/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yaml-lint-net
+
+  orchestrator:
+    build:
+      context: .
+      dockerfile: services/orchestrator/Dockerfile
+    container_name: yaml-lint-orchestrator
+    ports:
+      - "4000:4000"
+    environment:
+      - PORT=4000
+      - LEXER_URL=http://lexer:4001
+      - PARSER_URL=http://parser:4002
+      - SEMANTIC_URL=http://semantic-analyzer:4003
+      - EXPLAINER_URL=http://explainer:4004
+      - CIRCUIT_BREAKER_TIMEOUT=60000
+      - CIRCUIT_BREAKER_MAX_FAILURES=3
+      - CIRCUIT_BREAKER_RESET_TIMEOUT=10000
+    depends_on:
+      lexer:
+        condition: service_healthy
+      parser:
+        condition: service_healthy
+      semantic-analyzer:
+        condition: service_healthy
+      explainer:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:4000/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yaml-lint-net
+
+  web-ui:
+    build:
+      context: .
+      dockerfile: services/web-ui/Dockerfile
+    container_name: yaml-lint-web-ui
+    ports:
+      - "5000:5000"
+    environment:
+      - PORT=5000
+    depends_on:
+      orchestrator:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD", "node", "-e", "require('http').get('http://localhost:5000/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - yaml-lint-net
+
+networks:
+  yaml-lint-net:
+    driver: bridge
+
+volumes:
+  ollama_data:

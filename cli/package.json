@@ -1,0 +1,23 @@
+{
+  "name": "yaml-lint-cli",
+  "version": "1.0.0",
+  "description": "CLI client for YAML lint pipeline",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "yaml-lint": "./dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "dev": "tsx src/index.ts"
+  },
+  "dependencies": {
+    "chalk": "^5.3.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "typescript": "^5.4.0",
+    "tsx": "^4.7.0"
+  }
+}

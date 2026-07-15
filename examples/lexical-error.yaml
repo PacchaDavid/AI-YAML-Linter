@@ -1,0 +1,4 @@
+# Sample with lexical errors
+name: test
+	age: 25  # Mixed tabs and spaces (tab before 'age')
+active: yes

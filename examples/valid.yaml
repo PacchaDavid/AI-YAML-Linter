@@ -1,0 +1,24 @@
+# Sample valid configuration
+version: "1.0"
+name: my-app
+
+server:
+  port: 8080
+  host: localhost
+  debug: false
+  timeout: 30
+
+database:
+  host: db.example.com
+  port: 5432
+  name: mydb
+  user: admin
+  password: secret123
+
+logging:
+  level: info
+  file: /var/log/app.log
+
+features:
+  enabled: true
+  maxItems: 100
