@@ -11,32 +11,8 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600;700&display=swap" rel="stylesheet" />
 
-  <!-- CodeMirror 6 via esm.sh CDN
-       Each entry uses ?external= to force esm.sh to NOT bundle shared deps.
-       This ensures ALL @codemirror/* packages share ONE instance of @codemirror/state. -->
-  <!-- CodeMirror 6 via esm.sh CDN with ?external= on ALL non-leaf packages.
-       This ensures every shared dependency (@codemirror/state, @lezer/common, etc.)
-       is loaded ONCE via the importmap, not bundled inside each package. -->
-  <script type="importmap">
-  {
-    "imports": {
-      "@codemirror/state": "https://esm.sh/@codemirror/state@6.4.1",
-      "@codemirror/view": "https://esm.sh/@codemirror/view@6.29.1?external=@codemirror/state,style-mod,w3c-keyname,crelt",
-      "@codemirror/language": "https://esm.sh/@codemirror/language@6.10.3?external=@codemirror/state,@codemirror/view,@lezer/common,@lezer/lr,@lezer/highlight,style-mod",
-      "@codemirror/commands": "https://esm.sh/@codemirror/commands@6.6.2?external=@codemirror/state,@codemirror/view",
-      "@codemirror/autocomplete": "https://esm.sh/@codemirror/autocomplete@6.17.0?external=@codemirror/state,@codemirror/view,@codemirror/language,style-mod",
-      "@codemirror/search": "https://esm.sh/@codemirror/search@6.5.6?external=@codemirror/state,@codemirror/view,@codemirror/language",
-      "@codemirror/lang-yaml": "https://esm.sh/@codemirror/lang-yaml@6.1.1?external=@codemirror/state,@codemirror/view,@codemirror/language,@lezer/common,@lezer/lr,@lezer/highlight,@lezer/yaml",
-      "@lezer/common": "https://esm.sh/@lezer/common@1.2.1",
-      "@lezer/lr": "https://esm.sh/@lezer/lr@1.4.1?external=@lezer/common",
-      "@lezer/highlight": "https://esm.sh/@lezer/highlight@1.2.1?external=@lezer/common",
-      "@lezer/yaml": "https://esm.sh/@lezer/yaml@1.0.2?external=@lezer/common,@lezer/lr",
-      "crelt": "https://esm.sh/crelt@1.0.6",
-      "style-mod": "https://esm.sh/style-mod@4.1.2",
-      "w3c-keyname": "https://esm.sh/w3c-keyname@2.2.8"
-    }
-  }
-  </script>
+  <!-- Monaco Editor via CDN (AMD loader) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js"></script>
 
   <style>
     /* ═══════════════════════════════════════════
@@ -371,36 +347,14 @@
       border-radius: 0 0 var(--r) var(--r);
       overflow: hidden;
       min-height: 400px;
+      display: flex;
+      flex-direction: column;
     }
-    .editor-wrapper .cm-editor {
+    #editorContainer {
+      flex: 1;
+      width: 100%;
       height: 100%;
       min-height: 400px;
-      font-size: 13.5px;
-      background: var(--bg);
-    }
-    .editor-wrapper .cm-scroller {
-      font-family: var(--font-mono);
-      padding: 0.75rem 0;
-    }
-    .editor-wrapper .cm-content {
-      caret-color: var(--primary);
-    }
-    .editor-wrapper .cm-gutters {
-      background: var(--bg) !important;
-      border-right: 1px solid oklch(100% 0 0 / 0.05) !important;
-    }
-    .editor-wrapper .cm-activeLineGutter {
-      background: var(--primary-dim) !important;
-    }
-    .editor-wrapper .cm-activeLine {
-      background: oklch(100% 0 0 / 0.025) !important;
-    }
-    .editor-wrapper .cm-cursor {
-      border-left-color: var(--primary) !important;
-      border-left-width: 2px;
-    }
-    .editor-wrapper .cm-selectionBackground {
-      background: oklch(65% 0.18 145 / 0.2) !important;
     }
 
     /* ── Buttons (brutalist-edged) ── */
@@ -898,20 +852,13 @@
     </div>
   </div>
 
-  <!-- ─── CodeMirror Initialization ─── -->
-  <script type="module">
-    // ── Individual package imports (each with ?external= to deduplicate shared deps) ──
-    import { EditorView, keymap, lineNumbers, highlightActiveLineGutter, highlightSpecialChars, drawSelection, rectangularSelection, crosshairCursor, highlightActiveLine } from '@codemirror/view';
-    import { EditorState } from '@codemirror/state';
-    import { syntaxHighlighting, defaultHighlightStyle, indentOnInput, bracketMatching } from '@codemirror/language';
-    import { defaultKeymap, history, historyKeymap, indentWithTab } from '@codemirror/commands';
-    import { closeBrackets, closeBracketsKeymap, autocompletion, completionKeymap } from '@codemirror/autocomplete';
-    import { highlightSelectionMatches, searchKeymap } from '@codemirror/search';
-    import { yaml } from '@codemirror/lang-yaml';
-    import { tags } from '@lezer/highlight';
+  <!-- ─── Monaco Editor Initialization ─── -->
+  <script>
+    require.config({ paths: { vs: 'https://cdnjs.cloudflare.com/ajax/libs/monaco-editor/0.45.0/min/vs' } });
 
-    // ── Example YAML ──
-    const EXAMPLE_YAML = `# Configuración de ejemplo
+    require(['vs/editor/editor.main'], function () {
+      // ── Example YAML ──
+      const EXAMPLE_YAML = `# Configuración de ejemplo
 server:
   port: 8080
   host: localhost
@@ -925,385 +872,366 @@ database:
 logging:
   level: info`;
 
-    // ── Custom Technical Mono Theme (replaces oneDark) ──
-    const terminalTheme = EditorView.theme({
-      '&': {
-        backgroundColor: 'var(--bg)',
-        color: 'var(--fg)',
-      },
-      '.cm-gutters': {
-        backgroundColor: 'var(--bg)',
-        borderRight: '1px solid oklch(100% 0 0 / 0.05)',
-        color: 'var(--fg-dim)',
-      },
-      '.cm-activeLineGutter': {
-        backgroundColor: 'var(--primary-dim)',
-      },
-      '.cm-activeLine': {
-        backgroundColor: 'oklch(100% 0 0 / 0.025)',
-      },
-      '.cm-matchingBracket': {
-        backgroundColor: 'oklch(65% 0.18 145 / 0.15)',
-        outline: '1px solid oklch(65% 0.18 145 / 0.3)',
-      },
-      '.cm-selectionMatch': {
-        backgroundColor: 'oklch(65% 0.18 145 / 0.1)',
-      },
-      '.cm-tooltip': {
-        backgroundColor: 'var(--surface)',
-        border: '1px solid var(--border)',
-        color: 'var(--fg)',
-      },
-      '.cm-tooltip-autocomplete ul li[aria-selected]': {
-        backgroundColor: 'var(--primary-dim)',
-        color: 'var(--primary)',
-      },
-    });
-
-    // ── Custom Technical Mono Syntax Highlighting ──
-    const terminalHighlight = syntaxHighlighting([
-      { tag: tags.comment, color: 'oklch(45% 0.01 260)', fontStyle: 'italic' },
-      { tag: tags.string, color: 'oklch(72% 0.12 110)' },
-      { tag: tags.number, color: 'oklch(72% 0.15 255)' },
-      { tag: tags.bool, color: 'var(--primary)', fontWeight: 'bold' },
-      { tag: tags.keyword, color: 'var(--primary)' },
-      { tag: tags.null, color: 'var(--primary)' },
-      { tag: tags.propertyName, color: 'oklch(85% 0.02 95)' },
-      { tag: tags.punctuation, color: 'oklch(55% 0.01 260)' },
-      { tag: tags.meta, color: 'oklch(62% 0.18 265)' },
-      { tag: tags.literal, color: 'var(--fg)' },
-      { tag: tags.content, color: 'var(--fg)' },
-      { tag: tags.separator, color: 'var(--primary-dim)', fontWeight: 'bold' },
-      { tag: tags.documentMeta, color: 'var(--fg-dim)' },
-    ], { fallback: true });
-
-    // ── Create Editor ──
-    const container = document.getElementById('editorContainer');
-
-    const startState = EditorState.create({
-      doc: EXAMPLE_YAML,
-      extensions: [
-        lineNumbers(),
-        highlightActiveLineGutter(),
-        highlightSpecialChars(),
-        history(),
-        drawSelection(),
-        EditorState.allowMultipleSelections.of(true),
-        indentOnInput(),
-        syntaxHighlighting(defaultHighlightStyle, { fallback: true }),
-        bracketMatching(),
-        closeBrackets(),
-        autocompletion(),
-        rectangularSelection(),
-        crosshairCursor(),
-        highlightActiveLine(),
-        highlightSelectionMatches(),
-        yaml(),
-        terminalTheme,
-        terminalHighlight,
-        keymap.of([
-          ...defaultKeymap,
-          ...historyKeymap,
-          ...completionKeymap,
-          ...closeBracketsKeymap,
-          ...searchKeymap,
-          indentWithTab,
-        ]),
-        EditorView.updateListener.of((update) => {
-          if (update.docChanged) {
-            updateFileInfo(update.state.doc.length);
-          }
-        }),
-      ],
-    });
-
-    const view = new EditorView({
-      state: startState,
-      parent: container,
-    });
-
-    const editorView = view;
-
-    let currentFileName = null;
-
-    function updateFileInfo(len) {
-      const el = document.getElementById('fileInfo');
-      if (currentFileName) {
-        el.textContent = `${currentFileName} — ${len} caracteres`;
-      } else {
-        el.textContent = `${len} caracteres`;
-      }
-    }
-    updateFileInfo(EXAMPLE_YAML.length);
-
-    function setEditorContent(content, fileName) {
-      currentFileName = fileName || null;
-      editorView.dispatch({
-        changes: {
-          from: 0,
-          to: editorView.state.doc.length,
-          insert: content,
-        },
+      // ── Custom Technical Mono Theme (replaces CodeMirror styling) ──
+      monaco.editor.defineTheme('technicalMonoTheme', {
+        base: 'vs-dark',
+        inherit: true,
+        rules: [
+          { token: 'comment', foreground: '6B7280', fontStyle: 'italic' },
+          { token: 'string', foreground: 'A7F3D0' },
+          { token: 'number', foreground: '93C5FD' },
+          { token: 'keyword', foreground: '10B981', fontStyle: 'bold' },
+          { token: 'type', foreground: 'F3F4F6' },
+          { token: 'tag', foreground: '10B981' },
+        ],
+        colors: {
+          'editor.background': '#0b0d12',               // oklch(6% 0.015 260) - terminal black
+          'editor.foreground': '#f3f4f6',               // oklch(94% 0.01 95) - warm white
+          'editor.lineHighlightBackground': '#10b98108', // very faint terminal green highlight
+          'editorCursor.foreground': '#10b981',         // oklch(65% 0.18 145) - green cursor
+          'editor.selectionBackground': '#10b98125',    // oklch(65% 0.18 145 / 0.15)
+          'editor.inactiveSelectionBackground': '#10b98115',
+          'editorLineNumber.foreground': '#4b5563',      // oklch(40% 0.01 260)
+          'editorLineNumber.activeForeground': '#10b981',// oklch(65% 0.18 145)
+          'editorGutter.background': '#0b0d12',
+          'editorGutter.border': '#1e293b20',
+          'editor.lineHighlightBorder': '#00000000',
+        }
       });
-      updateFileInfo(content.length);
-    }
 
-    // ── Load Example Button ──
-    document.getElementById('loadExample').addEventListener('click', () => {
-      currentFileName = null;
-      setEditorContent(EXAMPLE_YAML);
-    });
+      // ── Create Editor ──
+      const container = document.getElementById('editorContainer');
+      const editor = monaco.editor.create(container, {
+        value: EXAMPLE_YAML,
+        language: 'yaml',
+        theme: 'technicalMonoTheme',
+        automaticLayout: true,
+        fontSize: 13.5,
+        fontFamily: 'JetBrains Mono, monospace',
+        tabSize: 2,
+        insertSpaces: true,
+        minimap: { enabled: false },
+        scrollbar: {
+          verticalScrollbarSize: 8,
+          horizontalScrollbarSize: 8,
+        }
+      });
 
-    // ── File Upload ──
-    const fileInput = document.getElementById('fileInput');
-    document.getElementById('uploadBtn').addEventListener('click', () => {
-      fileInput.click();
-    });
+      let currentFileName = null;
 
-    fileInput.addEventListener('change', (e) => {
-      const file = e.target.files[0];
-      if (!file) return;
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Archivo demasiado grande. El tamaño máximo es 5 MB.');
-        return;
+      function updateFileInfo(len) {
+        const el = document.getElementById('fileInfo');
+        if (currentFileName) {
+          el.textContent = `${currentFileName} — ${len} caracteres`;
+        } else {
+          el.textContent = `${len} caracteres`;
+        }
       }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setEditorContent(event.target.result, file.name);
-        // Auto-analyze after file upload
-        analyzeBtn.click();
-      };
-      reader.readAsText(file);
-      fileInput.value = ''; // Allow re-selecting the same file
-    });
+      updateFileInfo(EXAMPLE_YAML.length);
 
-    // ── Drag-and-Drop ──
-    const editorWrapper = document.getElementById('editorWrapper');
-    const dropOverlay = document.getElementById('dropOverlay');
-    let dragCounter = 0;
+      function setEditorContent(content, fileName) {
+        currentFileName = fileName || null;
+        editor.setValue(content);
+        updateFileInfo(content.length);
+        updateEditorMarkers([]);
+      }
 
-    editorWrapper.addEventListener('dragenter', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dragCounter++;
-      dropOverlay.classList.add('visible');
-    });
+      // ── Load Example Button ──
+      document.getElementById('loadExample').addEventListener('click', () => {
+        currentFileName = null;
+        setEditorContent(EXAMPLE_YAML);
+      });
 
-    editorWrapper.addEventListener('dragover', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-    });
+      // ── File Upload ──
+      const fileInput = document.getElementById('fileInput');
+      document.getElementById('uploadBtn').addEventListener('click', () => {
+        fileInput.click();
+      });
 
-    editorWrapper.addEventListener('dragleave', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dragCounter--;
-      if (dragCounter === 0) {
+      fileInput.addEventListener('change', (e) => {
+        const file = e.target.files[0];
+        if (!file) return;
+        if (file.size > 5 * 1024 * 1024) {
+          alert('Archivo demasiado grande. El tamaño máximo es 5 MB.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setEditorContent(event.target.result, file.name);
+          // Auto-analyze after file upload
+          analyzeBtn.click();
+        };
+        reader.readAsText(file);
+        fileInput.value = ''; // Allow re-selecting the same file
+      });
+
+      // ── Drag-and-Drop ──
+      const editorWrapper = document.getElementById('editorWrapper');
+      const dropOverlay = document.getElementById('dropOverlay');
+      let dragCounter = 0;
+
+      editorWrapper.addEventListener('dragenter', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter++;
+        dropOverlay.classList.add('visible');
+      });
+
+      editorWrapper.addEventListener('dragover', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+      });
+
+      editorWrapper.addEventListener('dragleave', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter--;
+        if (dragCounter === 0) {
+          dropOverlay.classList.remove('visible');
+        }
+      });
+
+      editorWrapper.addEventListener('drop', (e) => {
+        e.preventDefault();
+        e.stopPropagation();
+        dragCounter = 0;
         dropOverlay.classList.remove('visible');
-      }
-    });
 
-    editorWrapper.addEventListener('drop', (e) => {
-      e.preventDefault();
-      e.stopPropagation();
-      dragCounter = 0;
-      dropOverlay.classList.remove('visible');
-
-      const file = e.dataTransfer.files[0];
-      if (!file) return;
-      if (!file.name.endsWith('.yaml') && !file.name.endsWith('.yml')) {
-        alert('Por favor, suelta un archivo .yaml o .yml.');
-        return;
-      }
-      if (file.size > 5 * 1024 * 1024) {
-        alert('Archivo demasiado grande. El tamaño máximo es 5 MB.');
-        return;
-      }
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setEditorContent(event.target.result, file.name);
-        // Auto-analyze after file drop
-        analyzeBtn.click();
-      };
-      reader.readAsText(file);
-    });
-
-    // ── API Call ──
-    const ORCHESTRATOR_URL = window.location.origin === 'http://localhost:5000'
-      ? 'http://localhost:4000'
-      : 'http://orchestrator:4000';
-
-    async function analyzeYaml(content) {
-      const response = await fetch(`${ORCHESTRATOR_URL}/analyze`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ content }),
-        signal: AbortSignal.timeout(30000),
+        const file = e.dataTransfer.files[0];
+        if (!file) return;
+        if (!file.name.endsWith('.yaml') && !file.name.endsWith('.yml')) {
+          alert('Por favor, suelta un archivo .yaml o .yml.');
+          return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+          alert('Archivo demasiado grande. El tamaño máximo es 5 MB.');
+          return;
+        }
+        const reader = new FileReader();
+        reader.onload = (event) => {
+          setEditorContent(event.target.result, file.name);
+          // Auto-analyze after file drop
+          analyzeBtn.click();
+        };
+        reader.readAsText(file);
       });
-      if (!response.ok) throw new Error(`HTTP ${response.status}`);
-      return response.json();
-    }
 
-    // ── Renderizar resultados ──
-    const STAGE_LABELS = {
-      lexical: 'Léxico',
-      syntactic: 'Sintáctico',
-      semantic: 'Semántico',
-    };
+      // ── API Call ──
+      const ORCHESTRATOR_URL = window.location.origin === 'http://localhost:5000'
+        ? 'http://localhost:4000'
+        : 'http://orchestrator:4000';
 
-    function formatErrorCount(count, includeFound = true) {
-      const label = count === 1 ? '1 error' : `${count} errores`;
-      return includeFound
-        ? (count === 1 ? '1 error encontrado' : `${count} errores encontrados`)
-        : label;
-    }
-
-    function renderResults(data) {
-      const emptyState = document.getElementById('emptyState');
-      const loadingState = document.getElementById('loadingState');
-      const resultsInner = document.getElementById('resultsInner');
-
-      emptyState.style.display = 'none';
-      loadingState.style.display = 'none';
-      resultsInner.style.display = 'flex';
-      resultsInner.innerHTML = '';
-
-      // Summary
-      const summary = document.createElement('div');
-      summary.className = `result-summary ${data.valid ? 'valid' : 'invalid'}`;
-
-      if (data.valid) {
-        summary.innerHTML = `
-          <span class="icon-lg">✅</span>
-          <div class="info">
-            <h4 style="color: var(--ok)">La configuración es válida</h4>
-            <p>No se detectaron errores — el YAML pasó las tres etapas de análisis</p>
-          </div>
-        `;
-      } else {
-        const stageLabels = STAGE_LABELS;
-        summary.innerHTML = `
-          <span class="icon-lg">❌</span>
-          <div class="info">
-            <h4 style="color: var(--err)">${formatErrorCount(data.errors.length)}</h4>
-            <p>El análisis se detuvo en la etapa <strong>${stageLabels[data.stage] || data.stage}</strong></p>
-          </div>
-        `;
+      async function analyzeYaml(content) {
+        const response = await fetch(`${ORCHESTRATOR_URL}/analyze`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ content }),
+          signal: AbortSignal.timeout(30000),
+        });
+        if (!response.ok) throw new Error(`HTTP ${response.status}`);
+        return response.json();
       }
-      resultsInner.appendChild(summary);
 
-      document.getElementById('resultCount').textContent =
-        data.valid ? '✓ Válido' : formatErrorCount(data.errors.length, false);
+      // ── Renderizar resultados ──
+      const STAGE_LABELS = {
+        lexical: 'Léxico',
+        syntactic: 'Sintáctico',
+        semantic: 'Semántico',
+      };
 
-      if (!data.valid && data.errors.length > 0) {
-        const errorList = document.createElement('div');
-        errorList.className = 'error-list';
+      function formatErrorCount(count, includeFound = true) {
+        const label = count === 1 ? '1 error' : `${count} errores`;
+        return includeFound
+          ? (count === 1 ? '1 error encontrado' : `${count} errores encontrados`)
+          : label;
+      }
 
-        data.errors.forEach((err, index) => {
-          const card = document.createElement('div');
-          card.className = 'error-card';
-          card.setAttribute('data-stage', err.stage);
-          card.style.animationDelay = `${0.08 + index * 0.06}s`;
+      function updateEditorMarkers(errors) {
+        if (!errors || errors.length === 0) {
+          monaco.editor.setModelMarkers(editor.getModel(), 'yaml-linter', []);
+          return;
+        }
 
-          const stageLabel = STAGE_LABELS[err.stage] || err.stage.charAt(0).toUpperCase() + err.stage.slice(1);
-          const location = `Línea ${err.line}${err.column ? `, Columna ${err.column}` : ''}`;
+        const markers = errors.map(err => {
+          const line = Number(err.line);
+          const col = err.column ? Number(err.column) : 1;
+          const model = editor.getModel();
+          const maxCol = model ? model.getLineMaxColumn(line) : col + 10;
 
-          const explanationHtml = err.explanation
-            ? `<div class="error-explanation">${escapeHtml(formatExplanation(err.explanation))}</div>`
-            : '';
-
-          card.innerHTML = `
-            <div class="card-header">
-              <span class="stage-badge">${stageLabel}</span>
-              <span class="error-code">${escapeHtml(err.code)}</span>
-              <span class="error-location">${location}</span>
-            </div>
-            <div class="error-message">${escapeHtml(err.message)}</div>
-            ${explanationHtml}
-          `;
-          errorList.appendChild(card);
+          return {
+            severity: monaco.MarkerSeverity.Error,
+            message: `[${err.stage.toUpperCase()}] ${err.code}: ${err.message}`,
+            startLineNumber: line,
+            startColumn: col,
+            endLineNumber: line,
+            endColumn: maxCol
+          };
         });
 
-        resultsInner.appendChild(errorList);
+        monaco.editor.setModelMarkers(editor.getModel(), 'yaml-linter', markers);
       }
-    }
 
-    function escapeHtml(str) {
-      const div = document.createElement('div');
-      div.textContent = str;
-      return div.innerHTML;
-    }
+      function renderResults(data) {
+        const emptyState = document.getElementById('emptyState');
+        const loadingState = document.getElementById('loadingState');
+        const resultsInner = document.getElementById('resultsInner');
 
-    function formatExplanation(text) {
-      return text.replace(/^\[(TECHNICAL|OFFLINE|ERROR)\]\s*/, '');
-    }
+        emptyState.style.display = 'none';
+        loadingState.style.display = 'none';
+        resultsInner.style.display = 'flex';
+        resultsInner.innerHTML = '';
 
-    // ── Analyze Button ──
-    const analyzeBtn = document.getElementById('analyzeBtn');
-    const loadingState = document.getElementById('loadingState');
+        // Summary
+        const summary = document.createElement('div');
+        summary.className = `result-summary ${data.valid ? 'valid' : 'invalid'}`;
 
-    // ── Retry helper for connection errors ──
-    function showConnectionError(message) {
+        if (data.valid) {
+          summary.innerHTML = `
+            <span class="icon-lg">✅</span>
+            <div class="info">
+              <h4 style="color: var(--ok)">La configuración es válida</h4>
+              <p>No se detectaron errores — el YAML pasó las tres etapas de análisis</p>
+            </div>
+          `;
+          updateEditorMarkers([]);
+        } else {
+          const stageLabels = STAGE_LABELS;
+          summary.innerHTML = `
+            <span class="icon-lg">❌</span>
+            <div class="info">
+              <h4 style="color: var(--err)">${formatErrorCount(data.errors.length)}</h4>
+              <p>El análisis se detuvo en la etapa <strong>${stageLabels[data.stage] || data.stage}</strong></p>
+            </div>
+          `;
+          updateEditorMarkers(data.errors);
+        }
+        resultsInner.appendChild(summary);
+
+        document.getElementById('resultCount').textContent =
+          data.valid ? '✓ Válido' : formatErrorCount(data.errors.length, false);
+
+        if (!data.valid && data.errors.length > 0) {
+          const errorList = document.createElement('div');
+          errorList.className = 'error-list';
+
+          data.errors.forEach((err, index) => {
+            const card = document.createElement('div');
+            card.className = 'error-card';
+            card.setAttribute('data-stage', err.stage);
+            card.style.animationDelay = `${0.08 + index * 0.06}s`;
+
+            const stageLabel = STAGE_LABELS[err.stage] || err.stage.charAt(0).toUpperCase() + err.stage.slice(1);
+            const location = `Línea ${err.line}${err.column ? `, Columna ${err.column}` : ''}`;
+
+            const explanationHtml = err.explanation
+              ? `<div class="error-explanation">${escapeHtml(formatExplanation(err.explanation))}</div>`
+              : '';
+
+            card.innerHTML = `
+              <div class="card-header">
+                <span class="stage-badge">${stageLabel}</span>
+                <span class="error-code">${escapeHtml(err.code)}</span>
+                <span class="error-location">${location}</span>
+              </div>
+              <div class="error-message">${escapeHtml(err.message)}</div>
+              ${explanationHtml}
+            `;
+            errorList.appendChild(card);
+          });
+
+          resultsInner.appendChild(errorList);
+        }
+      }
+
+      function escapeHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+      }
+
+      function formatExplanation(text) {
+        return text.replace(/^\[(TECHNICAL|OFFLINE|ERROR)\]\s*/, '');
+      }
+
+      // ── Analyze Button ──
+      const analyzeBtn = document.getElementById('analyzeBtn');
       const loadingState = document.getElementById('loadingState');
-      const resultsInner = document.getElementById('resultsInner');
-      const emptyState = document.getElementById('emptyState');
 
-      loadingState.style.display = 'none';
-      emptyState.style.display = 'none';
-      resultsInner.style.display = 'flex';
+      // ── Retry helper for connection errors ──
+      function showConnectionError(message) {
+        const loadingState = document.getElementById('loadingState');
+        const resultsInner = document.getElementById('resultsInner');
+        const emptyState = document.getElementById('emptyState');
 
-      const container = document.createElement('div');
-      container.className = 'result-summary invalid';
-      container.innerHTML = `
-        <span class="icon-lg">⚠️</span>
-        <div class="info">
-          <h4 style="color: var(--warn)">Error de conexión</h4>
-          <p>${escapeHtml(message || 'No se pudo conectar con el servicio orquestador. Comprueba que todos los contenedores estén en ejecución.')}</p>
-          <div class="connection-error" style="margin-top:0.75rem;">
-            <button class="retry-btn" id="retryBtn">↻ Reintentar</button>
+        loadingState.style.display = 'none';
+        emptyState.style.display = 'none';
+        resultsInner.style.display = 'flex';
+
+        const container = document.createElement('div');
+        container.className = 'result-summary invalid';
+        container.innerHTML = `
+          <span class="icon-lg">⚠️</span>
+          <div class="info">
+            <h4 style="color: var(--warn)">Error de conexión</h4>
+            <p>${escapeHtml(message || 'No se pudo conectar con el servicio orquestador. Comprueba que todos los contenedores estén en ejecución.')}</p>
+            <div class="connection-error" style="margin-top:0.75rem;">
+              <button class="retry-btn" id="retryBtn">↻ Reintentar</button>
+            </div>
           </div>
-        </div>
-      `;
-      resultsInner.innerHTML = '';
-      resultsInner.appendChild(container);
+        `;
+        resultsInner.innerHTML = '';
+        resultsInner.appendChild(container);
 
-      // Attach retry handler programmatically (no inline onclick)
-      const retryBtn = resultsInner.querySelector('.retry-btn');
-      if (retryBtn) {
-        retryBtn.addEventListener('click', () => analyzeBtn.click());
+        // Attach retry handler programmatically (no inline onclick)
+        const retryBtn = resultsInner.querySelector('.retry-btn');
+        if (retryBtn) {
+          retryBtn.addEventListener('click', () => analyzeBtn.click());
+        }
+
+        document.getElementById('resultCount').textContent = 'Error';
       }
 
-      document.getElementById('resultCount').textContent = 'Error';
-    }
+      analyzeBtn.addEventListener('click', async () => {
+        const content = editor.getValue();
+        const emptyState = document.getElementById('emptyState');
+        const resultsInner = document.getElementById('resultsInner');
 
-    analyzeBtn.addEventListener('click', async () => {
-      const content = editorView.state.doc.toString();
-      const emptyState = document.getElementById('emptyState');
-      const resultsInner = document.getElementById('resultsInner');
+        emptyState.style.display = 'none';
+        resultsInner.style.display = 'none';
+        loadingState.style.display = 'flex';
+        analyzeBtn.disabled = true;
+        analyzeBtn.innerHTML = '<span style="opacity:0.7">⏳</span> Analizando...';
 
-      emptyState.style.display = 'none';
-      resultsInner.style.display = 'none';
-      loadingState.style.display = 'flex';
-      analyzeBtn.disabled = true;
-      analyzeBtn.innerHTML = '<span style="opacity:0.7">⏳</span> Analizando...';
+        try {
+          const data = await analyzeYaml(content);
+          renderResults(data);
+        } catch (err) {
+          showConnectionError(err.message || 'La solicitud falló. ¿Está el orquestador en ejecución?');
+        } finally {
+          analyzeBtn.disabled = false;
+          analyzeBtn.innerHTML = '▶ Analizar';
+        }
+      });
 
-      try {
-        const data = await analyzeYaml(content);
-        renderResults(data);
-      } catch (err) {
-        showConnectionError(err.message || 'La solicitud falló. ¿Está el orquestador en ejecución?');
-      } finally {
-        analyzeBtn.disabled = false;
-        analyzeBtn.innerHTML = '▶ Analizar';
-      }
-    });
+      // ── Update Listener ──
+      editor.onDidChangeModelContent(() => {
+        const len = editor.getValue().length;
+        updateFileInfo(len);
+        // Clear markers when user edits document
+        updateEditorMarkers([]);
+      });
 
-    // ── Keyboard shortcut: Ctrl+Enter ──
-    document.addEventListener('keydown', (e) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        e.preventDefault();
+      // ── Keyboard shortcut: Ctrl+Enter (global and local to Monaco) ──
+      document.addEventListener('keydown', (e) => {
+        if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+          e.preventDefault();
+          analyzeBtn.click();
+        }
+      });
+
+      editor.addCommand(monaco.KeyMod.CtrlCmd | monaco.KeyCode.Enter, function() {
         analyzeBtn.click();
-      }
+      });
     });
   </script>
 </body>
