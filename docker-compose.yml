@@ -12,34 +12,6 @@ services:
     networks:
       - yaml-lint-net
 
-  ollama:
-    image: ollama/ollama:latest
-    container_name: yaml-lint-ollama
-    ports:
-      - "11434:11434"
-    volumes:
-      - ollama_data:/root/.ollama
-    entrypoint: >
-      sh -c "
-      echo '[Ollama] Starting server...' &&
-      ollama serve &
-      sleep 3 &&
-      echo '[Ollama] Pulling model llama3.2...' &&
-      echo '[Ollama] Pulling model qwen:0.5b...' &&
-      ollama pull qwen:0.5b &&
-      ollama rm llama3.2 2>/dev/null || true &&
-      echo '[Ollama] Ready!' &&
-      tail -f /dev/null
-      "
-    healthcheck:
-      test: ["CMD-SHELL", "ollama list | grep -q 'qwen:0.5b'"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-      start_period: 60s
-    networks:
-      - yaml-lint-net
-
   lexer:
     build:
       context: .
@@ -104,18 +76,18 @@ services:
     container_name: yaml-lint-explainer
     ports:
       - "4004:4004"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     environment:
       - PORT=4004
       - REDIS_URL=redis://redis:6379
-      - OLLAMA_URL=http://ollama:11434
-      - OLLAMA_MODEL=qwen:0.5b
+      - OLLAMA_URL=http://host.docker.internal:11434
+      - OLLAMA_MODEL=qwen2.5:0.5b
       - CIRCUIT_BREAKER_TIMEOUT=120000
       - CIRCUIT_BREAKER_MAX_FAILURES=5
       - CIRCUIT_BREAKER_RESET_TIMEOUT=30000
     depends_on:
       redis:
-        condition: service_healthy
-      ollama:
         condition: service_healthy
     healthcheck:
       test: ["CMD", "node", "-e", "require('http').get('http://localhost:4004/health', r => { process.exit(r.statusCode === 200 ? 0 : 1) }).on('error', () => process.exit(1))"]
@@ -182,5 +154,3 @@ networks:
   yaml-lint-net:
     driver: bridge
 
-volumes:
-  ollama_data:
