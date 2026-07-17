@@ -5,7 +5,7 @@
 ![Node](https://img.shields.io/badge/Node-20-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Sistema distribuido que analiza archivos **YAML** en tres etapas independientes (léxica, sintáctica y semántica), detecta errores en cada etapa y genera explicaciones en lenguaje natural usando un **LLM local (Ollama + qwen:0.5b)**. Incluye una **interfaz web** (Web UI) para analizar archivos YAML desde el navegador.
+Sistema distribuido que analiza archivos **YAML** en tres etapas independientes (léxica, sintáctica y semántica), detecta errores en cada etapa y genera explicaciones en lenguaje natural usando un **LLM local (Ollama + qwen2.5:0.5b)**. Incluye una **interfaz web** (Web UI) para analizar archivos YAML desde el navegador.
 
 > Arquitectura de microservicios simulada con fines pedagógicos — **8 patrones de diseño** implementados.
 
@@ -20,6 +20,7 @@ Sistema distribuido que analiza archivos **YAML** en tres etapas independientes 
 - [Stack Tecnológico](#-stack-tecnológico)
 - [Requisitos](#-requisitos)
 - [Instalación y Uso Rápido](#-instalación-y-uso-rápido)
+- [Uso de Ollama Local](#-uso-de-ollama-local-instalado-en-el-sistema-operativo)
 - [Uso de la CLI](#-uso-de-la-cli)
 - [Web UI](#-web-ui)
 - [Ejemplos](#-ejemplos)
@@ -82,10 +83,10 @@ El **Orchestrator** coordina el pipeline secuencial: **Lexer → Parser → Sema
 | **Orchestrator** | `4000` | Coordina el pipeline; aplica Circuit Breaker en cada llamada; enriquece errores con explicaciones; expone `/analyze` | Docker |
 | **Web UI** | `5000` | Interfaz web (Express + estáticos) que consume el endpoint `/analyze` del Orchestrator | Docker |
 | **Redis** | `6379` | Cachea explicaciones para evitar re-consultar al LLM por errores repetidos | Docker (oficial) |
-| **Ollama** | `11434` | Motor de LLM local con modelo `qwen:0.5b` para generación de explicaciones | Docker (oficial) |
+| **Ollama** | `11434` | Motor de LLM local con modelo `qwen2.5:0.5b` para generación de explicaciones | Host (OS) |
 | **CLI** | — | Interfaz de línea de comandos para el usuario final | No requiere contenedor |
 
-> El `docker-compose.yml` define **8 servicios**: `redis`, `ollama`, `lexer`, `parser`, `semantic-analyzer`, `explainer`, `orchestrator` y `web-ui`.
+> El `docker-compose.yml` define **7 servicios**: `redis`, `lexer`, `parser`, `semantic-analyzer`, `explainer`, `orchestrator` y `web-ui`.
 
 ---
 
@@ -159,7 +160,7 @@ El proyecto implementa **8 patrones de diseño** como requisito pedagógico:
 | **Lenguaje** | TypeScript 5.4 (Node.js 20) |
 | **Framework HTTP** | Express.js |
 | **Validación de esquema** | ajv (JSON Schema) |
-| **LLM local** | Ollama + modelo `qwen:0.5b` |
+| **LLM local** | Ollama + modelo `qwen2.5:0.5b` |
 | **Cache** | Redis 7 Alpine |
 | **Contenerización** | Docker + Docker Compose |
 | **Testing** | Vitest |
@@ -194,8 +195,11 @@ npm run test:all
 
 ### 2. Levantar los servicios con Docker Compose
 
+> [!IMPORTANT]
+> El sistema está configurado para utilizar la instancia de **Ollama instalada localmente en tu sistema operativo** en lugar de una dockerizada, permitiendo un uso más eficiente de recursos de GPU y VRAM. Antes de levantar Docker, asegúrate de realizar la configuración de red y firewall descrita en [Uso de Ollama Local](#-uso-de-ollama-local-instalado-en-el-sistema-operativo).
+
 ```bash
-# Construir y levantar todos los servicios
+# Construir y levantar todos los servicios en Docker
 npm run docker:up
 # Equivalente a: docker compose up --build -d
 
@@ -203,8 +207,48 @@ npm run docker:up
 npm run docker:logs
 
 # Esperar a que todos los servicios estén saludables
-# (la primera vez, Ollama descargará qwen:0.5b ~400MB)
 ```
+
+---
+
+## 🦙 Uso de Ollama Local (Instalado en el Sistema Operativo)
+
+Para evitar duplicar recursos (memoria RAM/VRAM) y aprovechar la aceleración por hardware (GPU/CUDA) ya configurada en el OS, este sistema se conecta directamente a la instancia de **Ollama** nativa del Host.
+
+### 🐧 Configuración en Linux (ej. CachyOS, Arch, Ubuntu, Debian)
+
+Por defecto, Ollama en Linux corre bajo `systemd` y solo escucha peticiones de la dirección de bucle local `127.0.0.1`. Para permitir que los contenedores de Docker se comuniquen con Ollama en el Host, sigue estos pasos:
+
+1. **Permitir que Ollama escuche en todas las interfaces (`0.0.0.0`):**
+   Crea una anulación de configuración en el servicio systemd de Ollama:
+   ```bash
+   sudo mkdir -p /etc/systemd/system/ollama.service.d
+   echo -e "[Service]\nEnvironment=\"OLLAMA_HOST=0.0.0.0\"" | sudo tee /etc/systemd/system/ollama.service.d/override.conf
+   ```
+
+2. **Permitir acceso en el cortafuegos (UFW) si está activo:**
+   UFW suele bloquear las conexiones desde el puente de Docker hacia los puertos del Host. Abre el puerto de Ollama (`11434`) para el rango privado de Docker:
+   ```bash
+   sudo ufw allow from 172.16.0.0/12 to any port 11434 proto tcp
+   sudo ufw reload
+   ```
+
+3. **Recargar systemd y reiniciar Ollama:**
+   ```bash
+   sudo systemctl daemon-reload
+   sudo systemctl restart ollama
+   ```
+
+4. **Verificar que escuche correctamente:**
+   ```bash
+   ss -tulpn | grep 11434
+   # Debería mostrar *:11434 o 0.0.0.0:11434 en lugar de 127.0.0.1:11434
+   ```
+
+5. **Asegurar que el modelo esté descargado en el Host:**
+   ```bash
+   ollama pull qwen2.5:0.5b
+   ```
 
 ### 3. Analizar un archivo YAML
 
@@ -528,35 +572,36 @@ npm run test:e2e
 
 ---
 
-## 🩺 Troubleshooting Docker
+## 🩺 Troubleshooting de Ollama y Redes
 
-### Error: `container yaml-lint-ollama exited (2)`
+### Error: El Explainer responde con explicaciones genéricas técnicas (`[TECHNICAL] ...`)
 
-Causa probable: error de sintaxis en el `entrypoint` shell de Ollama.
+Causa probable: El contenedor `yaml-lint-explainer` no se puede conectar al puerto de Ollama en el Host (problema de red, cortafuegos o dirección de escucha).
 
-Verifica que en [docker-compose.yml](docker-compose.yml) el bloque de Ollama use:
-
-```yaml
-ollama rm llama3.2 2>/dev/null || true &&
-```
-
-y no una secuencia con `&&` colgando.
-
-### Error de salud de Ollama por `wget: not found`
-
-La imagen oficial de Ollama no incluye `wget` por defecto. El healthcheck recomendado es:
-
-```yaml
-healthcheck:
-  test: ["CMD-SHELL", "ollama list | grep -q 'qwen:0.5b'"]
-```
-
-### Reaplicar configuración y recrear servicios
-
+#### 1. Verificar conectividad desde el contenedor Docker
+Ejecuta la siguiente prueba de conexión HTTP directa desde el contenedor para ver el error exacto:
 ```bash
-docker compose up --build -d
-docker compose up -d --force-recreate ollama
-docker compose ps
+docker exec yaml-lint-explainer node -e "fetch('http://host.docker.internal:11434/api/tags').then(r => r.json()).then(console.log).catch(console.error)"
+```
+
+* **Si lanza `ConnectTimeoutError` (Timeout):** El cortafuegos (ej. UFW o firewalld) está bloqueando la comunicación. Asegúrate de añadir la regla de red correspondiente para el rango `172.16.0.0/12`.
+* **Si lanza `ECONNREFUSED`:** Ollama no está corriendo, o sigue escuchando solo en `127.0.0.1`. Asegúrate de aplicar la configuración de `OLLAMA_HOST=0.0.0.0` y reiniciar el servicio systemd.
+
+#### 2. Verificar que Ollama escuche en la interfaz correcta
+En el host, ejecuta:
+```bash
+ss -tulpn | grep 11434
+```
+Debe listar `*:11434` o `0.0.0.0:11434`. Si muestra `127.0.0.1:11434`, la configuración en el paso 1 de [Uso de Ollama Local](#-uso-de-ollama-local-instalado-en-el-sistema-operativo) no se aplicó correctamente.
+
+#### 3. Verificar estado del servicio y modelos en el host
+```bash
+# Comprobar estado del servicio
+systemctl status ollama
+
+# Comprobar que el modelo esté descargado
+ollama list
+# Debe listar: qwen2.5:0.5b
 ```
 
 ---
