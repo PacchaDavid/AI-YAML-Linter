@@ -5,7 +5,7 @@
 ![Node](https://img.shields.io/badge/Node-20-green)
 ![License](https://img.shields.io/badge/license-MIT-green)
 
-Sistema distribuido que analiza archivos **YAML** en tres etapas independientes (léxica, sintáctica y semántica), detecta errores en cada etapa y genera explicaciones en lenguaje natural usando un **LLM local (Ollama + qwen:0.5b)**.
+Sistema distribuido que analiza archivos **YAML** en tres etapas independientes (léxica, sintáctica y semántica), detecta errores en cada etapa y genera explicaciones en lenguaje natural usando un **LLM local (Ollama + qwen:0.5b)**. Incluye una **interfaz web** (Web UI) para analizar archivos YAML desde el navegador.
 
 > Arquitectura de microservicios simulada con fines pedagógicos — **8 patrones de diseño** implementados.
 
@@ -21,6 +21,7 @@ Sistema distribuido que analiza archivos **YAML** en tres etapas independientes 
 - [Requisitos](#-requisitos)
 - [Instalación y Uso Rápido](#-instalación-y-uso-rápido)
 - [Uso de la CLI](#-uso-de-la-cli)
+- [Web UI](#-web-ui)
 - [Ejemplos](#-ejemplos)
 - [Desarrollo Local](#-desarrollo-local)
 - [Estructura del Proyecto](#-estructura-del-proyecto)
@@ -33,12 +34,14 @@ Sistema distribuido que analiza archivos **YAML** en tres etapas independientes 
 ## 🏗️ Arquitectura
 
 ```
-┌──────────────────────────────────────────────────────────────┐
-│                           CLI                                │
-│                   (node src/index.ts)                        │
-└────────────────────────┬─────────────────────────────────────┘
-                         │ POST /analyze { content }
-                         ▼
+┌────────────────────────┐   ┌──────────────────────────────────────┐
+│        CLI              │   │             WEB UI                    │
+│ (node cli/...)          │   │ (services/web-ui, puerto 5000)        │
+└───────────┬─────────────┘   └───────────────┬──────────────────────┘
+            │ POST /analyze { content }        │  POST /analyze (proxy)
+            │                                  │
+            └───────────────┬──────────────────┘
+                            ▼
 ┌──────────────────────────────────────────────────────────────┐
 │                     ORCHESTRATOR (puerto 4000)               │
 │  ┌──────────┐  ┌──────────┐  ┌──────────────┐  ┌─────────┐ │
@@ -46,8 +49,8 @@ Sistema distribuido que analiza archivos **YAML** en tres etapas independientes 
 │  │ Breaker  │  │ Breaker  │  │   Breaker    │  │ Breaker │ │
 │  └────┬─────┘  └────┬─────┘  └──────┬───────┘  └────┬────┘ │
 └───────┼──────────────┼───────────────┼───────────────┼───────┘
-        │              │               │               │
-        ▼              ▼               ▼               ▼
+         │              │               │               │
+         ▼              ▼               ▼               ▼
 ┌──────────┐   ┌──────────┐   ┌──────────────┐   ┌──────────┐
 │  LEXER   │   │  PARSER  │   │   SEMANTIC   │   │EXPLAINER │
 │ :4001    │──▶│ :4002    │──▶│ :4003        │   │ :4004    │
@@ -57,14 +60,14 @@ Sistema distribuido que analiza archivos **YAML** en tres etapas independientes 
 │          │   │          │   │              │   │  │Redis ││
 │          │   │          │   │              │   │  └──┬───┘│
 └──────────┘   └──────────┘   └──────────────┘   │     │    │
-                                                  │  ┌──┴───┐│
-                                                  │  │OLLAMA││
-                                                  │  │LLM   ││
-                                                  │  └──────┘│
-                                                  └──────────┘
+                                                   │  ┌──┴───┐│
+                                                   │  │OLLAMA││
+                                                   │  │LLM   ││
+                                                   │  └──────┘│
+                                                   └──────────┘
 ```
 
-El **Orchestrator** coordina el pipeline secuencial: **Lexer → Parser → Semantic Analyzer**. Si cualquiera de las etapas detecta errores, el pipeline se detiene inmediatamente y los errores se envían al **Explainer** para generar explicaciones.
+El **Orchestrator** coordina el pipeline secuencial: **Lexer → Parser → Semantic Analyzer**. Si cualquiera de las etapas detecta errores, el pipeline se detiene inmediatamente y los errores se envían al **Explainer** para generar explicaciones. Tanto la **CLI** como la **Web UI** consumen el endpoint `/analyze` del Orchestrator.
 
 ---
 
@@ -76,10 +79,13 @@ El **Orchestrator** coordina el pipeline secuencial: **Lexer → Parser → Sema
 | **Parser** | `4002` | Construye un AST a partir de los tokens; detecta errores de estructura (llaves sin cerrar, indentación jerárquica rota, listas mal formadas) | Docker |
 | **Semantic Analyzer** | `4003` | Valida el AST contra un esquema JSON (ajv) y reglas personalizadas (tipos incorrectos, valores fuera de rango, claves duplicadas, valores vacíos, convenciones de nombres) | Docker |
 | **Explainer** | `4004` | Recibe errores, consulta al LLM (Ollama) o al caché (Redis) y devuelve explicaciones en lenguaje natural | Docker |
-| **Orchestrator** | `4000` | Coordina el pipeline; aplica Circuit Breaker en cada llamada; enriquece errores con explicaciones | Docker |
+| **Orchestrator** | `4000` | Coordina el pipeline; aplica Circuit Breaker en cada llamada; enriquece errores con explicaciones; expone `/analyze` | Docker |
+| **Web UI** | `5000` | Interfaz web (Express + estáticos) que consume el endpoint `/analyze` del Orchestrator | Docker |
 | **Redis** | `6379` | Cachea explicaciones para evitar re-consultar al LLM por errores repetidos | Docker (oficial) |
 | **Ollama** | `11434` | Motor de LLM local con modelo `qwen:0.5b` para generación de explicaciones | Docker (oficial) |
 | **CLI** | — | Interfaz de línea de comandos para el usuario final | No requiere contenedor |
+
+> El `docker-compose.yml` define **8 servicios**: `redis`, `ollama`, `lexer`, `parser`, `semantic-analyzer`, `explainer`, `orchestrator` y `web-ui`.
 
 ---
 
@@ -245,6 +251,20 @@ Environment:
 
 ---
 
+## 🌐 Web UI
+
+Además de la CLI, el proyecto incluye una **interfaz web** servida por el servicio `web-ui` (puerto `5000`). Una vez que los contenedores están levantados, abre:
+
+```
+http://localhost:5000
+```
+
+El frontend (HTML estático en `services/web-ui/src/public/index.html`) permite pegar o cargar un archivo YAML y enviarlo al Orchestrator a través del endpoint `/analyze`, mostrando los errores y sus explicaciones en el navegador.
+
+> La Web UI requiere que el servicio `orchestrator` esté saludable (declarado vía `depends_on` en `docker-compose.yml`).
+
+---
+
 ## 📂 Ejemplos
 
 El directorio `examples/` contiene archivos YAML de prueba para cada tipo de error:
@@ -396,9 +416,14 @@ project-root/
 │   ├── parser/src/               # Servicio de parsing
 │   ├── semantic-analyzer/src/    # Servicio de validación semántica
 │   ├── explainer/src/            # Servicio de explicaciones
-│   └── orchestrator/src/         # Servicio orquestador
-└── cli/src/                      # Interfaz de línea de comandos
-    └── index.ts                  # Punto de entrada CLI
+│   ├── orchestrator/src/         # Servicio orquestador
+│   └── web-ui/src/               # Interfaz web (servidor Express + público)
+│       ├── index.ts              # Punto de entrada de la Web UI
+│       └── public/index.html    # Frontend estático
+├── cli/src/                      # Interfaz de línea de comandos
+│   └── index.ts                  # Punto de entrada CLI
+└── tests/                        # Pruebas end-to-end
+    └── e2e.test.ts               # Levanta Docker Compose y valida el pipeline
 ```
 
 ---
@@ -446,9 +471,12 @@ Validación de esquema: debe ser de tipo string en la ruta '/database/name'
 El sistema maneja fallos de manera graceful:
 
 ### Circuit Breaker
-- Cada llamada saliente del Orchestrator (hacia Lexer, Parser, Semantic, Explainer) está protegida por un **Circuit Breaker**
-- Si un servicio falla 3 veces consecutivas, el circuito se **abre** y las llamadas subsiguientes usan un **fallback inmediato** sin intentar la conexión
-- Después de 10 segundos, el circuito pasa a **half-open** y prueba una llamada para verificar la recuperación
+- Cada llamada saliente (Orchestrator → Lexer/Parser/Semantic/Explainer; Explainer → Ollama/Redis) está protegida por un **Circuit Breaker**
+- La configuración se define por variables de entorno y **difiere por servicio** (ver `docker-compose.yml`):
+  - **Orchestrator**: abre tras `3` fallos consecutivos, reset tras `10000` ms
+  - **Explainer**: abre tras `5` fallos consecutivos, reset tras `30000` ms
+- Si un servicio falla el umbral configurado, el circuito se **abre** y las llamadas subsiguientes usan un **fallback inmediato** sin intentar la conexión
+- Tras el tiempo de reset, el circuito pasa a **half-open** y prueba una llamada para verificar la recuperación
 
 ### Degradación graceful
 - Si **Ollama** no está disponible o tarda demasiado, el Explainer devuelve una explicación técnica sin LLM
@@ -466,24 +494,36 @@ El sistema maneja fallos de manera graceful:
 
 El proyecto usa **Vitest** con mocks para las dependencias externas (Redis, Ollama). Esto permite testear el pipeline completo sin levantar contenedores.
 
+### Tests unitarios por servicio
+
 ```bash
-# Tests del Lexer (10 tests)
+# Tests del Lexer
 cd services/lexer && npx vitest run
 
-# Tests del Parser (6 tests)
+# Tests del Parser
 cd services/parser && npx vitest run
 
-# Tests del Semantic Analyzer (7 tests)
+# Tests del Semantic Analyzer
 cd services/semantic-analyzer && npx vitest run
 
-# Tests del Explainer con mocks (3 tests)
+# Tests del Explainer con mocks
 cd services/explainer && npx vitest run
 
-# Tests del Orchestrator con mocks (3 tests)
+# Tests del Orchestrator con mocks
 cd services/orchestrator && npx vitest run
 
-# O todos a la vez
+# O todos a la vez (desde la raíz)
 npm run test:all
+```
+
+### Pruebas end-to-end (e2e)
+
+El directorio `tests/` contiene `e2e.test.ts`, que levanta el stack completo con **Docker Compose** y valida el pipeline completo (léxico → sintáctico → semántico → explicaciones) contra los archivos de `examples/`.
+
+```bash
+# Requiere Docker y Docker Compose disponibles
+npm run test:e2e
+# Equivalente a: cd tests && npm install && npx vitest run
 ```
 
 ---
