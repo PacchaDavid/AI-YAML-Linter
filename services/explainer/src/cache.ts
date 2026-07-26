@@ -30,8 +30,22 @@ export interface CacheRepository {
 }
 
 export function createErrorSignature(error: { stage: string; code: string; message: string }): string {
-  // Normalize message by removing line numbers and specific values
-  const normalizedMessage = error.message.replace(/\d+/g, '{N}').replace(/'[^']*'/g, "'{VAL}'");
+  // Normalize message by removing line numbers and specific values, but preserve port-specific numeric ranges
+  let normalizedMessage = error.message;
+  
+  // Replace line numbers (e.g., "en la línea 5")
+  normalizedMessage = normalizedMessage.replace(/en la línea \d+/g, 'en la línea {LINE}');
+  
+  // Replace generic numeric values and quoted values, but NOT port values
+  // This regex replaces standalone numbers that are NOT part of a port range
+  normalizedMessage = normalizedMessage.replace(/(?<!(puerto|puerto\s+\d+))\b\d+\b(?!(\s+está\s+fuera\s+del\s+rango|\s+está\s+dentro\s+del\s+rango|\s*\(.*\)))/g, '{VALOR}');
+  
+  // Replace quoted values (e.g., "Se esperaba un valor numérico para 'puerto', pero se recibió 'world'")
+  normalizedMessage = normalizedMessage.replace(/'[^']*'/g, "'{VALOR}'");
+  
+  // Replace generic ranges (e.g., "(1-65535)")
+  normalizedMessage = normalizedMessage.replace(/\d+-\d+/g, '{RANGO}');
+  
   return `explain:es:${error.stage}:${error.code}:${normalizedMessage}`;
 }
 
