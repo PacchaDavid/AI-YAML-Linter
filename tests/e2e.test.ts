@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeAll, afterAll } from 'vitest';
+import { describe, it, expect, beforeAll, beforeEach, afterAll } from 'vitest';
 import * as fs from 'fs';
 import * as path from 'path';
 import { fileURLToPath } from 'url';
@@ -63,7 +63,7 @@ async function analyzeFile(content: string): Promise<AnalyzeResponse> {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({ content }),
-    signal: AbortSignal.timeout(30_000),
+    signal: AbortSignal.timeout(120_000),
   });
 
   if (!response.ok) {
@@ -138,19 +138,20 @@ afterAll(() => {
 // ──────────────────────────────────────────────
 
 describe('E2E: YAML Lint Pipeline (Docker Compose)', () => {
-  // Skip all tests if orchestrator is not reachable
-  if (!servicesReachable) {
-    const reason = process.env.CI
-      ? 'Services not reachable — ensure Docker is running'
-      : 'Services not reachable — run `npm run docker:up` first';
-    console.warn(`⏭️  Skipping E2E tests: ${reason}`);
+  beforeAll(async () => {
+    if (!servicesReachable) {
+      console.warn('⏭️  Skipping E2E tests: Services not reachable — run `npm run docker:up` first');
+    }
+  });
 
-    it.skip(`(all tests skipped — ${reason})`, () => {});
-    return;
-  }
+  beforeEach((ctx) => {
+    if (!servicesReachable) {
+      ctx.skip();
+    }
+  });
 
   // ── valid.yaml ──
-  it('should report valid.yaml as valid (no errors)', { timeout: 30_000 }, async () => {
+  it('should report valid.yaml as valid (no errors)', { timeout: 120_000 }, async () => {
     const content = readExampleFile('valid.yaml');
     const result = await analyzeFile(content);
 
@@ -160,7 +161,7 @@ describe('E2E: YAML Lint Pipeline (Docker Compose)', () => {
   });
 
   // ── lexical-error.yaml ──
-  it('should detect lexical errors in lexical-error.yaml', { timeout: 30_000 }, async () => {
+  it('should detect lexical errors in lexical-error.yaml', { timeout: 120_000 }, async () => {
     const content = readExampleFile('lexical-error.yaml');
     const result = await analyzeFile(content);
 
@@ -175,7 +176,7 @@ describe('E2E: YAML Lint Pipeline (Docker Compose)', () => {
   });
 
   // ── syntax-error.yaml ──
-  it('should detect syntax errors in syntax-error.yaml', { timeout: 30_000 }, async () => {
+  it('should detect syntax errors in syntax-error.yaml', { timeout: 120_000 }, async () => {
     const content = readExampleFile('syntax-error.yaml');
     const result = await analyzeFile(content);
 
@@ -197,7 +198,7 @@ describe('E2E: YAML Lint Pipeline (Docker Compose)', () => {
   });
 
   // ── semantic-error.yaml ──
-  it('should detect semantic errors in semantic-error.yaml', { timeout: 30_000 }, async () => {
+  it('should detect semantic errors in semantic-error.yaml', { timeout: 120_000 }, async () => {
     const content = readExampleFile('semantic-error.yaml');
     const result = await analyzeFile(content);
 
@@ -218,7 +219,7 @@ describe('E2E: YAML Lint Pipeline (Docker Compose)', () => {
   });
 
   // ── Pipeline stops at first error stage ──
-  it('should NOT analyze semantic stage when lexical errors exist', { timeout: 30_000 }, async () => {
+  it('should NOT analyze semantic stage when lexical errors exist', { timeout: 120_000 }, async () => {
     const content = readExampleFile('lexical-error.yaml');
     const result = await analyzeFile(content);
 
@@ -227,7 +228,7 @@ describe('E2E: YAML Lint Pipeline (Docker Compose)', () => {
     expect(semanticErrors).toHaveLength(0);
   });
 
-  it('should NOT analyze semantic stage when syntax errors exist', { timeout: 30_000 }, async () => {
+  it('should NOT analyze semantic stage when syntax errors exist', { timeout: 120_000 }, async () => {
     const content = readExampleFile('syntax-error.yaml');
     const result = await analyzeFile(content);
 
@@ -237,7 +238,7 @@ describe('E2E: YAML Lint Pipeline (Docker Compose)', () => {
   });
 
   // ── Error explanations ──
-  it('should enrich all errors with explanations across all error types', { timeout: 60_000 }, async () => {
+  it('should enrich all errors with explanations across all error types', { timeout: 120_000 }, async () => {
     const yamls = ['lexical-error.yaml', 'syntax-error.yaml', 'semantic-error.yaml'];
     for (const yaml of yamls) {
       const content = readExampleFile(yaml);

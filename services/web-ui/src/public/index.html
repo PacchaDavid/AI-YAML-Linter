@@ -739,6 +739,213 @@
       background: var(--primary-dim);
     }
 
+    /* ── Tab System in Results Panel ── */
+    .panel-tabs {
+      display: flex;
+      background: var(--surface);
+      border-bottom: 1px solid var(--border);
+      padding: 0 0.5rem;
+      gap: 0.25rem;
+      overflow-x: auto;
+    }
+    .tab-btn {
+      display: flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.55rem 0.85rem;
+      background: transparent;
+      border: none;
+      border-bottom: 2px solid transparent;
+      color: var(--fg-muted);
+      font-family: var(--font);
+      font-size: 0.8rem;
+      font-weight: 500;
+      cursor: pointer;
+      white-space: nowrap;
+      transition: all var(--dur-fast) var(--ease-out);
+    }
+    .tab-btn:hover {
+      color: var(--fg);
+      background: oklch(100% 0 0 / 0.03);
+    }
+    .tab-btn.active {
+      color: var(--primary);
+      border-bottom-color: var(--primary);
+      background: oklch(100% 0 0 / 0.04);
+    }
+    .tab-badge {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      padding: 0.1rem 0.4rem;
+      border-radius: var(--r-full);
+      font-size: 0.65rem;
+      font-family: var(--font-mono);
+      background: oklch(20% 0.015 260);
+      color: var(--fg-muted);
+    }
+    .tab-btn.active .tab-badge {
+      background: var(--primary-dim);
+      color: var(--primary);
+    }
+
+    /* ── Tab Views ── */
+    .tab-pane {
+      display: none;
+      flex-direction: column;
+      gap: 1rem;
+      padding: 1rem;
+    }
+    .tab-pane.active {
+      display: flex;
+    }
+
+    /* ── Tokens Table & Filter ── */
+    .tokens-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+      flex-wrap: wrap;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-faint);
+    }
+    .tokens-search {
+      flex: 1;
+      min-width: 160px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--r-sm);
+      padding: 0.35rem 0.65rem;
+      color: var(--fg);
+      font-family: var(--font-mono);
+      font-size: 0.75rem;
+      outline: none;
+    }
+    .tokens-search:focus {
+      border-color: var(--primary);
+    }
+    .tokens-stats {
+      display: flex;
+      gap: 0.5rem;
+      font-size: 0.7rem;
+      font-family: var(--font-mono);
+    }
+    .stat-tag {
+      padding: 0.15rem 0.45rem;
+      border-radius: var(--r-xs);
+      background: var(--surface-up);
+      color: var(--fg-muted);
+    }
+
+    .tokens-table-container {
+      overflow-x: auto;
+      max-height: 440px;
+      overflow-y: auto;
+      border: 1px solid var(--border-faint);
+      border-radius: var(--r-sm);
+      background: var(--surface);
+    }
+    .tokens-table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 0.75rem;
+      font-family: var(--font-mono);
+      text-align: left;
+    }
+    .tokens-table th {
+      position: sticky;
+      top: 0;
+      background: var(--surface-up);
+      color: var(--fg-muted);
+      font-weight: 600;
+      padding: 0.4rem 0.65rem;
+      border-bottom: 1px solid var(--border);
+      z-index: 2;
+    }
+    .tokens-table td {
+      padding: 0.35rem 0.65rem;
+      border-bottom: 1px solid var(--border-faint);
+      white-space: nowrap;
+    }
+    .tokens-table tr:hover {
+      background: oklch(100% 0 0 / 0.03);
+    }
+
+    /* Token Badges */
+    .token-badge {
+      display: inline-block;
+      padding: 0.1rem 0.4rem;
+      border-radius: var(--r-xs);
+      font-size: 0.65rem;
+      font-weight: 600;
+      font-family: var(--font-mono);
+    }
+    .token-KEY { background: oklch(35% 0.1 145); color: oklch(85% 0.18 145); }
+    .token-STRING { background: oklch(35% 0.1 80); color: oklch(85% 0.18 80); }
+    .token-NUMBER { background: oklch(35% 0.1 260); color: oklch(85% 0.18 260); }
+    .token-BOOLEAN { background: oklch(35% 0.1 310); color: oklch(85% 0.18 310); }
+    .token-COLON, .token-DASH, .token-INDENT, .token-DEDENT { background: oklch(25% 0.05 200); color: oklch(75% 0.1 200); }
+    .token-COMMENT { background: oklch(25% 0.01 260); color: oklch(60% 0.01 260); font-style: italic; }
+
+    /* ── AST Tree View ── */
+    .ast-toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.5rem;
+      padding-bottom: 0.5rem;
+      border-bottom: 1px solid var(--border-faint);
+    }
+    .ast-container {
+      max-height: 440px;
+      overflow: auto;
+      padding: 0.75rem;
+      background: var(--bg);
+      border: 1px solid var(--border-faint);
+      border-radius: var(--r-sm);
+      font-family: var(--font-mono);
+      font-size: 0.78rem;
+    }
+    .ast-tree-node {
+      margin-left: 1rem;
+      border-left: 1px dashed oklch(30% 0.015 260);
+      padding-left: 0.5rem;
+      margin-top: 0.25rem;
+    }
+    .ast-tree-node.root-node {
+      margin-left: 0;
+      border-left: none;
+      padding-left: 0;
+    }
+    .ast-node-header {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      padding: 0.2rem 0.4rem;
+      border-radius: var(--r-xs);
+      cursor: pointer;
+      user-select: none;
+      transition: background var(--dur-fast);
+    }
+    .ast-node-header:hover {
+      background: var(--surface-hover);
+    }
+    .ast-toggle {
+      font-size: 0.65rem;
+      color: var(--fg-muted);
+      width: 12px;
+      display: inline-block;
+      text-align: center;
+    }
+    .ast-type-root { color: var(--primary); font-weight: 700; }
+    .ast-type-mapping { color: oklch(75% 0.17 75); font-weight: 600; }
+    .ast-type-sequence { color: oklch(75% 0.17 265); font-weight: 600; }
+    .ast-type-scalar { color: oklch(85% 0.15 145); }
+    .ast-key { color: oklch(90% 0.05 95); font-weight: 500; }
+    .ast-val { color: oklch(80% 0.14 140); }
+    .ast-line { font-size: 0.65rem; color: var(--fg-dim); background: var(--surface); padding: 0 0.3rem; border-radius: var(--r-xs); }
+
     /* ── Responsive ── */
     @media (max-width: 900px) {
       .main-container {
@@ -820,18 +1027,32 @@
       <div class="panel-header lg lg-terminal">
         <div class="panel-title">
           <span class="dot">▶</span>
-          Resultados
+          Resultados & Inspección AST/PLN
         </div>
         <div class="panel-actions">
           <span class="file-info" id="resultCount">Esperando...</span>
         </div>
       </div>
+
+      <!-- Tab Navigation Header -->
+      <div class="panel-tabs" id="resultsTabs">
+        <button class="tab-btn active" data-tab="tabReport">
+          📋 Reporte <span class="tab-badge" id="badgeReport">-</span>
+        </button>
+        <button class="tab-btn" data-tab="tabTokens">
+          🔤 Tokens (PLN) <span class="tab-badge" id="badgeTokens">0</span>
+        </button>
+        <button class="tab-btn" data-tab="tabAst">
+          🌳 Árbol Sintáctico (AST) <span class="tab-badge" id="badgeAst">-</span>
+        </button>
+      </div>
+
       <div id="resultsContent" class="lg lg-terminal" style="flex:1; min-height: 320px;">
         <!-- Empty State -->
         <div class="state-empty" id="emptyState">
           <div class="icon">📄</div>
           <h3>Aún sin análisis</h3>
-          <p>Escribe o pega una configuración YAML en el editor y haz clic en <strong style="color:var(--primary)">Analizar</strong> para comprobar errores.</p>
+          <p>Escribe o pega una configuración YAML en el editor y haz clic en <strong style="color:var(--primary)">Analizar</strong> para extraer tokens (PLN), construir el AST y verificar errores.</p>
         </div>
         <!-- Loading State (Skeleton — "never spinners") -->
         <div class="state-loading" id="loadingState" style="display:none;">
@@ -842,12 +1063,45 @@
             <div class="skeleton skeleton-block"></div>
           </div>
           <div class="loading-label">
-            <span>Analizando configuración</span>
+            <span>Analizando configuración (Léxico ➔ Sintáctico ➔ Semántico)</span>
             <span class="cursor-blink"></span>
           </div>
         </div>
-        <!-- Results Content -->
-        <div id="resultsInner" style="display:none;" class="results-content"></div>
+        <!-- Results Content (3 Tab Panes) -->
+        <div id="resultsInner" style="display:none; flex-direction:column; width:100%;" class="results-content">
+          <!-- Tab 1: Report Pane -->
+          <div class="tab-pane active" id="tabReport"></div>
+
+          <!-- Tab 2: Tokens Pane (PLN / Lexer) -->
+          <div class="tab-pane" id="tabTokens">
+            <div class="tokens-toolbar">
+              <input type="text" id="tokensSearch" class="tokens-search" placeholder="🔍 Filtrar por tipo (KEY, STRING) o valor..." />
+              <div class="tokens-stats" id="tokensStats"></div>
+            </div>
+            <div class="tokens-table-container">
+              <table class="tokens-table">
+                <thead>
+                  <tr>
+                    <th>Posición</th>
+                    <th>Tipo Token</th>
+                    <th>Clasificación</th>
+                    <th>Valor Extraído</th>
+                  </tr>
+                </thead>
+                <tbody id="tokensTableBody"></tbody>
+              </table>
+            </div>
+          </div>
+
+          <!-- Tab 3: AST Pane (Parser) -->
+          <div class="tab-pane" id="tabAst">
+            <div class="ast-toolbar">
+              <span style="font-size:0.75rem; color:var(--fg-muted);">Árbol Sintáctico Abstracto generado por services/parser</span>
+              <button class="btn btn-ghost" id="copyAstBtn" style="font-size:0.7rem; padding:0.2rem 0.5rem;">📋 Copiar JSON AST</button>
+            </div>
+            <div class="ast-container" id="astContainer"></div>
+          </div>
+        </div>
       </div>
     </div>
   </div>
@@ -1032,6 +1286,195 @@ logging:
         return response.json();
       }
 
+      // ── Tab Navigation ──
+      const resultsTabs = document.getElementById('resultsTabs');
+      resultsTabs.addEventListener('click', (e) => {
+        const btn = e.target.closest('.tab-btn');
+        if (!btn) return;
+        const targetTabId = btn.getAttribute('data-tab');
+
+        document.querySelectorAll('#resultsTabs .tab-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+
+        document.querySelectorAll('#resultsInner .tab-pane').forEach(p => p.classList.remove('active'));
+        const pane = document.getElementById(targetTabId);
+        if (pane) pane.classList.add('active');
+      });
+
+      let currentAnalysisData = null;
+
+      // ── Tokens Search Filter ──
+      document.getElementById('tokensSearch').addEventListener('input', (e) => {
+        if (!currentAnalysisData || !currentAnalysisData.tokens) return;
+        renderTokensTable(currentAnalysisData.tokens, e.target.value);
+      });
+
+      // ── Copy AST JSON ──
+      document.getElementById('copyAstBtn').addEventListener('click', () => {
+        if (!currentAnalysisData || !currentAnalysisData.ast) return;
+        navigator.clipboard.writeText(JSON.stringify(currentAnalysisData.ast, null, 2));
+        const btn = document.getElementById('copyAstBtn');
+        const orig = btn.textContent;
+        btn.textContent = '✅ ¡Copiado!';
+        setTimeout(() => { btn.textContent = orig; }, 1500);
+      });
+
+      // ── Helper: Token Categorization ──
+      function getTokenCategory(type) {
+        const structural = ['COLON', 'DASH', 'INDENT', 'DEDENT', 'NEWLINE', 'PIPE', 'GT', 'EOF'];
+        const scalars = ['KEY', 'STRING', 'NUMBER', 'BOOLEAN', 'NULL'];
+        if (scalars.includes(type)) return 'Clave/Valor (PLN)';
+        if (structural.includes(type)) return 'Símbolo Estructural';
+        if (type === 'COMMENT') return 'Comentario';
+        return 'Sintaxis';
+      }
+
+      // ── Render Tokens Table ──
+      function renderTokensTable(tokens, filterQuery = '') {
+        const tbody = document.getElementById('tokensTableBody');
+        const statsEl = document.getElementById('tokensStats');
+        tbody.innerHTML = '';
+
+        if (!tokens || tokens.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--fg-dim);">No hay tokens disponibles</td></tr>';
+          statsEl.innerHTML = '';
+          return;
+        }
+
+        const q = filterQuery.toLowerCase().trim();
+        const filtered = tokens.filter(t =>
+          !q || t.type.toLowerCase().includes(q) || String(t.value).toLowerCase().includes(q)
+        );
+
+        let scalarCount = 0;
+        let structCount = 0;
+
+        tokens.forEach(t => {
+          if (['KEY', 'STRING', 'NUMBER', 'BOOLEAN', 'NULL'].includes(t.type)) scalarCount++;
+          else structCount++;
+        });
+
+        statsEl.innerHTML = `
+          <span class="stat-tag">Total: ${tokens.length}</span>
+          <span class="stat-tag" style="color:var(--primary)">Claves/Valores: ${scalarCount}</span>
+          <span class="stat-tag">Estructura: ${structCount}</span>
+        `;
+
+        if (filtered.length === 0) {
+          tbody.innerHTML = '<tr><td colspan="4" style="text-align:center; padding:1.5rem; color:var(--fg-dim);">No se encontraron tokens coincidentes</td></tr>';
+          return;
+        }
+
+        filtered.forEach(t => {
+          const tr = document.createElement('tr');
+          const category = getTokenCategory(t.type);
+          const valDisplay = t.type === 'NEWLINE' ? '\\n' : (t.type === 'EOF' ? 'EOF' : t.value);
+          const badgeClass = `token-badge token-${t.type}`;
+
+          tr.innerHTML = `
+            <td style="color:var(--fg-dim);">L${t.line}:C${t.column}</td>
+            <td><span class="${badgeClass}">${t.type}</span></td>
+            <td style="color:var(--fg-muted); font-size:0.7rem;">${category}</td>
+            <td><code style="color:var(--fg);">${escapeHtml(valDisplay)}</code></td>
+          `;
+          tbody.appendChild(tr);
+        });
+      }
+
+      // ── Render AST Tree View ──
+      function renderAstView(ast) {
+        const container = document.getElementById('astContainer');
+        container.innerHTML = '';
+
+        if (!ast) {
+          container.innerHTML = '<div style="text-align:center; padding:1.5rem; color:var(--fg-dim);">No se pudo construir el AST (error en etapas previas o archivo vacío)</div>';
+          return;
+        }
+
+        function createNodeEl(node, isRoot = false) {
+          const wrapper = document.createElement('div');
+          wrapper.className = `ast-tree-node ${isRoot ? 'root-node' : ''}`;
+
+          const header = document.createElement('div');
+          header.className = 'ast-node-header';
+
+          const hasChildren = node.children && node.children.length > 0;
+          const isValueNodeArray = Array.isArray(node.value);
+
+          const icon = node.type === 'root' ? '🌳' :
+                       node.type === 'mapping' ? '🗝️' :
+                       node.type === 'sequence' ? '📜' : '💎';
+
+          const toggleSpan = document.createElement('span');
+          toggleSpan.className = 'ast-toggle';
+          toggleSpan.textContent = (hasChildren || isValueNodeArray) ? '▼' : '•';
+
+          header.appendChild(toggleSpan);
+
+          const iconSpan = document.createElement('span');
+          iconSpan.textContent = icon;
+          header.appendChild(iconSpan);
+
+          const typeSpan = document.createElement('span');
+          typeSpan.className = `ast-type-${node.type}`;
+          typeSpan.textContent = node.type.toUpperCase();
+          header.appendChild(typeSpan);
+
+          if (node.key) {
+            const keySpan = document.createElement('span');
+            keySpan.className = 'ast-key';
+            keySpan.textContent = `"${node.key}":`;
+            header.appendChild(keySpan);
+          }
+
+          if (node.value !== undefined && !Array.isArray(node.value)) {
+            const valSpan = document.createElement('span');
+            valSpan.className = 'ast-val';
+            valSpan.textContent = JSON.stringify(node.value);
+            header.appendChild(valSpan);
+          }
+
+          if (node.line) {
+            const lineSpan = document.createElement('span');
+            lineSpan.className = 'ast-line';
+            lineSpan.textContent = `L${node.line}`;
+            header.appendChild(lineSpan);
+          }
+
+          wrapper.appendChild(header);
+
+          const childrenContainer = document.createElement('div');
+          childrenContainer.className = 'ast-children';
+
+          if (hasChildren) {
+            node.children.forEach(child => {
+              childrenContainer.appendChild(createNodeEl(child));
+            });
+          }
+
+          if (isValueNodeArray) {
+            node.value.forEach(child => {
+              childrenContainer.appendChild(createNodeEl(child));
+            });
+          }
+
+          wrapper.appendChild(childrenContainer);
+
+          header.addEventListener('click', (e) => {
+            e.stopPropagation();
+            if (childrenContainer.children.length > 0) {
+              const isHidden = childrenContainer.style.display === 'none';
+              childrenContainer.style.display = isHidden ? 'block' : 'none';
+              toggleSpan.textContent = isHidden ? '▼' : '▶';
+            }
+          });
+
+          return wrapper;
+        }
+
+        container.appendChild(createNodeEl(ast, true));
+      }
+
       // ── Renderizar resultados ──
       const STAGE_LABELS = {
         lexical: 'Léxico',
@@ -1072,16 +1515,24 @@ logging:
       }
 
       function renderResults(data) {
+        currentAnalysisData = data;
+
         const emptyState = document.getElementById('emptyState');
         const loadingState = document.getElementById('loadingState');
         const resultsInner = document.getElementById('resultsInner');
+        const tabReport = document.getElementById('tabReport');
 
         emptyState.style.display = 'none';
         loadingState.style.display = 'none';
         resultsInner.style.display = 'flex';
-        resultsInner.innerHTML = '';
+        tabReport.innerHTML = '';
 
-        // Summary
+        // Update Badges
+        document.getElementById('badgeReport').textContent = data.valid ? '✓' : `${data.errors.length}`;
+        document.getElementById('badgeTokens').textContent = data.tokens ? `${data.tokens.length}` : '0';
+        document.getElementById('badgeAst').textContent = data.ast ? '✓ AST' : 'Sin AST';
+
+        // Summary Card
         const summary = document.createElement('div');
         summary.className = `result-summary ${data.valid ? 'valid' : 'invalid'}`;
 
@@ -1090,7 +1541,7 @@ logging:
             <span class="icon-lg">✅</span>
             <div class="info">
               <h4 style="color: var(--ok)">La configuración es válida</h4>
-              <p>No se detectaron errores — el YAML pasó las tres etapas de análisis</p>
+              <p>No se detectaron errores — el YAML pasó las tres etapas de análisis (Léxica, Sintáctica, Semántica)</p>
             </div>
           `;
           updateEditorMarkers([]);
@@ -1105,7 +1556,7 @@ logging:
           `;
           updateEditorMarkers(data.errors);
         }
-        resultsInner.appendChild(summary);
+        tabReport.appendChild(summary);
 
         document.getElementById('resultCount').textContent =
           data.valid ? '✓ Válido' : formatErrorCount(data.errors.length, false);
@@ -1139,8 +1590,12 @@ logging:
             errorList.appendChild(card);
           });
 
-          resultsInner.appendChild(errorList);
+          tabReport.appendChild(errorList);
         }
+
+        // Render Tokens and AST Panes
+        renderTokensTable(data.tokens || []);
+        renderAstView(data.ast || null);
       }
 
       function escapeHtml(str) {

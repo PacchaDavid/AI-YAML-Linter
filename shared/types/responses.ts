@@ -30,4 +30,6 @@ export interface AnalyzeResponse {
   valid: boolean;
   errors: LintError[];
   stage: 'lexical' | 'syntactic' | 'semantic' | 'complete';
+  tokens?: Token[];
+  ast?: ASTNode | null;
 }

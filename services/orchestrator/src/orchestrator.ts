@@ -8,10 +8,15 @@ interface ServiceAdapters {
   explainer: { explain(error: LintError): Promise<{ explanation: string; cached: boolean }> };
 }
 
+import { Token } from '../../../shared/types/token';
+import { ASTNode } from '../../../shared/types/ast';
+
 interface OrchestratorResult {
   valid: boolean;
   errors: LintError[];
   stage: 'lexical' | 'syntactic' | 'semantic' | 'complete';
+  tokens?: Token[];
+  ast?: ASTNode | null;
 }
 
 // --- Builder Pattern for error report construction ---
@@ -62,34 +67,38 @@ export class Orchestrator {
       () => ({ tokens: [], errors: [{ stage: 'lexical', code: 'LEX-ERR', message: 'Servicio de lexer no disponible', line: 0 }] as LintError[] })
     );
 
+    const tokens = (lexResult.tokens as Token[]) || [];
+
     if (lexResult.errors.length > 0) {
       console.log(`[Orchestrator] Lexer found ${lexResult.errors.length} errors`);
       lexResult.errors.forEach(e => builder.addError(e));
 
       // Get explanations for lexical errors
       await this.enrichErrors(builder, lexResult.errors);
-      return { valid: false, errors: builder.build(), stage: 'lexical' };
+      return { valid: false, errors: builder.build(), stage: 'lexical', tokens };
     }
 
     // Step 2: Chain of Responsibility — Parser
     console.log('[Orchestrator] Step 2: Parsing...');
     const parseResult = await this.parserCB.call(
-      () => this.services.parser.parse(lexResult.tokens),
+      () => this.services.parser.parse(tokens),
       () => ({ ast: null, errors: [{ stage: 'syntactic', code: 'PAR-ERR', message: 'Servicio de parser no disponible', line: 0 }] as LintError[] })
     );
+
+    const ast = (parseResult.ast as ASTNode) || null;
 
     if (parseResult.errors.length > 0) {
       console.log(`[Orchestrator] Parser found ${parseResult.errors.length} errors`);
       parseResult.errors.forEach(e => builder.addError(e));
 
       await this.enrichErrors(builder, parseResult.errors);
-      return { valid: false, errors: builder.build(), stage: 'syntactic' };
+      return { valid: false, errors: builder.build(), stage: 'syntactic', tokens, ast };
     }
 
     // Step 3: Chain of Responsibility — Semantic Analyzer
     console.log('[Orchestrator] Step 3: Validating semantics...');
     const semanticResult = await this.semanticCB.call(
-      () => this.services.semantic.validate(parseResult.ast),
+      () => this.services.semantic.validate(ast),
       () => ({ valid: false, errors: [{ stage: 'semantic', code: 'SEM-ERR', message: 'Servicio de analizador semántico no disponible', line: 0 }] as LintError[] })
     );
 
@@ -98,11 +107,11 @@ export class Orchestrator {
       semanticResult.errors.forEach(e => builder.addError(e));
 
       await this.enrichErrors(builder, semanticResult.errors);
-      return { valid: false, errors: builder.build(), stage: 'semantic' };
+      return { valid: false, errors: builder.build(), stage: 'semantic', tokens, ast };
     }
 
     console.log('[Orchestrator] Analysis complete — no errors found');
-    return { valid: true, errors: [], stage: 'complete' };
+    return { valid: true, errors: [], stage: 'complete', tokens, ast };
   }
 
   private async enrichErrors(builder: ErrorReportBuilder, errors: LintError[]): Promise<void> {
