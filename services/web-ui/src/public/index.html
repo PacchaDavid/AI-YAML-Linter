@@ -1271,12 +1271,8 @@ logging:
       });
 
       // ── API Call ──
-      const ORCHESTRATOR_URL = window.location.origin === 'http://localhost:5000'
-        ? 'http://localhost:4000'
-        : 'http://orchestrator:4000';
-
       async function analyzeYaml(content) {
-        const response = await fetch(`${ORCHESTRATOR_URL}/analyze`, {
+        const response = await fetch('/analyze', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({ content }),
