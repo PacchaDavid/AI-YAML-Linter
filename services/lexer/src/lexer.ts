@@ -1,11 +1,24 @@
 import { Token, TokenType } from '../../../shared/types/token';
 import { LintError } from '../../../shared/types/error';
 
+/**
+ * Estructura de resultado devuelta por el componente Lexer.
+ */
 interface LexerResult {
   tokens: Token[];
   errors: LintError[];
 }
 
+/**
+ * @function lexer
+ * @description Realiza el análisis léxico de la Etapa 1 sobre el contenido de texto YAML de entrada.
+ * Convierte el texto plano en una secuencia estructurada de tokens (Clave, Valor, Indentación, Desindentación, Guión, Salto de línea, Fin de archivo)
+ * y detecta anomalías a nivel de caracteres como mezcla de tabulaciones/espacios, caracteres no imprimibles inválidos
+ * y niveles de indentación inconsistentes.
+ *
+ * @param input Cadena de texto con el contenido YAML crudo.
+ * @returns Objeto que contiene el flujo de tokens procesados y la lista de errores léxicos encontrados.
+ */
 export function lexer(input: string): LexerResult {
   const tokens: Token[] = [];
   const errors: LintError[] = [];
@@ -18,7 +31,7 @@ export function lexer(input: string): LexerResult {
     lineNum++;
     const line = rawLine;
 
-    // Check for mixed tabs and spaces
+    // Validar estilo de indentación: detectar mezcla de tabulaciones y espacios
     if (/^ *\t|\t +/.test(line) || /^ +\t/.test(line)) {
       errors.push({
         stage: 'lexical',
@@ -29,7 +42,7 @@ export function lexer(input: string): LexerResult {
       });
     }
 
-    // Check for invalid characters
+    // Validar codificación de caracteres: detectar caracteres no imprimibles o ilegales
     const invalidCharMatch = line.match(/[^\x09\x0A\x0D\x20-\x7E\x80-\xFF\u00A0\u2000-\u200A\u202F\u205F\u3000]/);
     if (invalidCharMatch) {
       errors.push({
@@ -41,7 +54,7 @@ export function lexer(input: string): LexerResult {
       });
     }
 
-    // Empty line or comment
+    // Procesar líneas vacías y comentarios
     const trimmed = line.trim();
     if (trimmed === '' || trimmed.startsWith('#')) {
       if (trimmed.startsWith('#')) {
@@ -56,7 +69,7 @@ export function lexer(input: string): LexerResult {
       continue;
     }
 
-    // Compute indentation
+    // Calcular profundidad de indentación para rastrear la estructura de bloques
     const indentMatch = line.match(/^ */);
     const indentLen = indentMatch ? indentMatch[0].length : 0;
 
@@ -84,11 +97,11 @@ export function lexer(input: string): LexerResult {
       }
     }
 
-    // Tokenize the content of the line after indentation
+    // Tokenizar el contenido de la línea posterior a los espacios de indentación
     const content = line.substring(indentLen);
     let col = indentLen + 1;
 
-    // Check for list item (dash)
+    // Verificar elemento de secuencia (guión de lista)
     if (content.startsWith('- ')) {
       tokens.push({ type: TokenType.DASH, value: '-', line: lineNum, column: col });
       col += 2;
@@ -97,7 +110,7 @@ export function lexer(input: string): LexerResult {
       tokens.push({ type: TokenType.DASH, value: '-', line: lineNum, column: col });
       col += 1;
     } else {
-      // Key: value pair
+      // Mapeo clave: valor
       const colonIdx = content.indexOf(':');
       if (colonIdx >= 0) {
         const key = content.substring(0, colonIdx).trimEnd();
@@ -112,7 +125,7 @@ export function lexer(input: string): LexerResult {
           tokenizeValue(valuePart, tokens, lineNum, col - valuePart.length + 1);
         }
       } else {
-        // Scalar value without key (e.g., plain text)
+        // Token escalar simple sin clave
         tokenizeValue(content.trim(), tokens, lineNum, col);
       }
     }
@@ -120,7 +133,7 @@ export function lexer(input: string): LexerResult {
     tokens.push({ type: TokenType.NEWLINE, value: '\n', line: lineNum, column: line.length + 1 });
   }
 
-  // Close any remaining indentation
+  // Desapilar los niveles de indentación restantes al final del archivo
   while (indentStack.length > 1) {
     indentStack.pop();
     tokens.push({
@@ -136,39 +149,50 @@ export function lexer(input: string): LexerResult {
   return { tokens, errors };
 }
 
+/**
+ * Clasifica y agrega un token de valor escalar (Booleano, Nulo, Número, Bloque multilínea o Cadena)
+ * al arreglo de tokens.
+ *
+ * @param value Representación en texto del valor escalar.
+ * @param tokens Arreglo destino de tokens.
+ * @param line Número de línea donde ocurre el escalar.
+ * @param col Posición de columna donde inicia el escalar.
+ */
 function tokenizeValue(value: string, tokens: Token[], line: number, col: number): void {
   if (!value) return;
 
-  // Boolean
+  // Evaluación de valores booleanos
   if (/^(true|false|yes|no|on|off)$/i.test(value)) {
     tokens.push({ type: TokenType.BOOLEAN, value, line, column: col });
     return;
   }
 
-  // Null
+  // Evaluación de valores nulos
   if (/^(null|~)$/i.test(value)) {
     tokens.push({ type: TokenType.NULL, value, line, column: col });
     return;
   }
 
-  // Number (integer or float)
+  // Evaluación de números (enteros y punto flotante)
   if (/^-?\d+(\.\d+)?([eE][+-]?\d+)?$/.test(value)) {
     tokens.push({ type: TokenType.NUMBER, value, line, column: col });
     return;
   }
 
-  // Pipe (multi-line string)
+  // Escalar de bloque literal multilínea (|)
   if (value === '|') {
     tokens.push({ type: TokenType.PIPE, value, line, column: col });
     return;
   }
 
-  // GT (folded string)
+  // Escalar de bloque plegado (>)
   if (value === '>') {
     tokens.push({ type: TokenType.GT, value, line, column: col });
     return;
   }
 
-  // String (default)
+  // Tipo por defecto: Cadena de texto
   tokens.push({ type: TokenType.STRING, value, line, column: col });
 }
+
+

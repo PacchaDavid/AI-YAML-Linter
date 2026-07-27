@@ -2,17 +2,33 @@ import { Token, TokenType } from '../../../shared/types/token';
 import { ASTNode } from '../../../shared/types/ast';
 import { LintError } from '../../../shared/types/error';
 
+/**
+ * Estructura del resultado devuelto por el componente Parser.
+ */
 interface ParserResult {
   ast: ASTNode | null;
   errors: LintError[];
 }
 
+/**
+ * Contexto interno de parsing que mantiene la posición actual del token y la lista de errores.
+ */
 interface ParseContext {
   tokens: Token[];
   pos: number;
   errors: LintError[];
 }
 
+/**
+ * @function parser
+ * @description Realiza el análisis sintáctico de la Etapa 2 sobre un flujo de tokens generado por el Lexer.
+ * Utiliza un algoritmo de Parsing por Descenso Recursivo para construir un Árbol de Sintaxis Abstracta (AST)
+ * que representa mapeos, secuencias y nodos escalares. Detecta inconsistencias estructurales como dos puntos faltantes
+ * o tokens inesperados.
+ *
+ * @param tokens Flujo de tokens proveniente de la Etapa 1 (Lexer).
+ * @returns Objeto que contiene el nodo raíz ASTNode construido y los errores sintácticos detectados.
+ */
 export function parser(tokens: Token[]): ParserResult {
   const ctx: ParseContext = {
     tokens,
@@ -26,7 +42,7 @@ export function parser(tokens: Token[]): ParserResult {
     line: 1,
   };
 
-  // Skip initial newlines
+  // Omitir saltos de línea iniciales y comentarios antes del primer nodo
   skipNewlines(ctx);
 
   while (ctx.pos < tokens.length && tokens[ctx.pos].type !== TokenType.EOF) {
@@ -34,21 +50,17 @@ export function parser(tokens: Token[]): ParserResult {
     if (node) {
       root.children!.push(node);
     } else {
-      // Error recovery: skip to next meaningful token
+      // Recuperación de errores: avanzar más allá del token inválido para continuar el parsing
       advance(ctx);
     }
     skipNewlines(ctx);
   }
 
-  // Check for unbalanced indentation
+  // Verificar desindentaciones no cerradas al final del flujo de tokens
   if (ctx.pos < tokens.length && tokens[ctx.pos].type === TokenType.DEDENT) {
-    // This is normal at EOF, but check if there are extra dedents
-    let dedentCount = 0;
     while (ctx.pos < tokens.length && tokens[ctx.pos].type === TokenType.DEDENT) {
-      dedentCount++;
       advance(ctx);
     }
-    // Too many dedents could indicate a problem
   }
 
   return {
@@ -57,22 +69,29 @@ export function parser(tokens: Token[]): ParserResult {
   };
 }
 
+/**
+ * Procesa y construye un nodo AST según la clasificación del token actual.
+ *
+ * @param ctx Contexto de parsing actual.
+ * @param indentLevel Nivel de profundidad de anidación actual.
+ * @returns Nodo AST construido o null si ocurrió un error.
+ */
 function parseNode(ctx: ParseContext, indentLevel: number): ASTNode | null {
   if (ctx.pos >= ctx.tokens.length) return null;
 
   const token = ctx.tokens[ctx.pos];
 
-  // List item (dash)
+  // Elemento de secuencia (token de guión de lista)
   if (token.type === TokenType.DASH) {
     return parseSequenceItem(ctx, indentLevel);
   }
 
-  // Key-value pair
+  // Mapeo clave-valor
   if (token.type === TokenType.KEY) {
     return parseMapping(ctx, indentLevel);
   }
 
-  // Scalar value at root level
+  // Valor escalar independiente
   if (isScalarType(token.type)) {
     const node: ASTNode = {
       type: 'scalar',
@@ -83,7 +102,7 @@ function parseNode(ctx: ParseContext, indentLevel: number): ASTNode | null {
     return node;
   }
 
-  // Unexpected token
+  // Registrar error sintáctico por token inesperado
   ctx.errors.push({
     stage: 'syntactic',
     code: 'PAR-001',
@@ -95,9 +114,12 @@ function parseNode(ctx: ParseContext, indentLevel: number): ASTNode | null {
   return null;
 }
 
+/**
+ * Procesa un nodo de mapeo clave-valor en YAML y sus nodos hijos o valor escalar en línea.
+ */
 function parseMapping(ctx: ParseContext, indentLevel: number): ASTNode | null {
   const keyToken = ctx.tokens[ctx.pos];
-  advance(ctx); // consume KEY
+  advance(ctx); // consumir KEY
 
   if (ctx.pos >= ctx.tokens.length || ctx.tokens[ctx.pos].type !== TokenType.COLON) {
     ctx.errors.push({
@@ -114,27 +136,24 @@ function parseMapping(ctx: ParseContext, indentLevel: number): ASTNode | null {
       line: keyToken.line,
     };
   }
-  advance(ctx); // consume COLON
+  advance(ctx); // consumir COLON
 
-  // Skip spaces
   const node: ASTNode = {
     type: 'mapping',
     key: keyToken.value,
     line: keyToken.line,
   };
 
-  // Check what follows
   if (ctx.pos < ctx.tokens.length) {
     const next = ctx.tokens[ctx.pos];
 
     if (next.type === TokenType.NEWLINE) {
-      // Multi-line value: check for indented children
-      advance(ctx); // consume NEWLINE
+      // Mapeo o secuencia anidada multilínea
+      advance(ctx);
       skipNewlines(ctx);
 
-      // Read indented children (sequence or mapping)
       if (ctx.pos < ctx.tokens.length && ctx.tokens[ctx.pos].type === TokenType.INDENT) {
-        advance(ctx); // consume INDENT
+        advance(ctx); // consumir INDENT
 
         node.children = [];
         while (ctx.pos < ctx.tokens.length) {
@@ -161,12 +180,11 @@ function parseMapping(ctx: ParseContext, indentLevel: number): ASTNode | null {
         }
       }
     } else if (isScalarType(next.type) || next.type === TokenType.DASH) {
-      // Inline value
+      // Valor en una sola línea o lista en línea
       if (next.type === TokenType.DASH) {
-        // Inline sequence
         node.children = [];
         while (ctx.pos < ctx.tokens.length && ctx.tokens[ctx.pos].type === TokenType.DASH) {
-          advance(ctx); // consume DASH
+          advance(ctx);
           if (ctx.pos < ctx.tokens.length && isScalarType(ctx.tokens[ctx.pos].type)) {
             node.children.push({
               type: 'scalar',
@@ -185,8 +203,11 @@ function parseMapping(ctx: ParseContext, indentLevel: number): ASTNode | null {
   return node;
 }
 
+/**
+ * Procesa un nodo de elemento de secuencia (elemento de lista que empieza con '-').
+ */
 function parseSequenceItem(ctx: ParseContext, indentLevel: number): ASTNode | null {
-  advance(ctx); // consume DASH
+  advance(ctx); // consumir DASH
 
   const node: ASTNode = {
     type: 'sequence',
@@ -204,9 +225,8 @@ function parseSequenceItem(ctx: ParseContext, indentLevel: number): ASTNode | nu
         line: node.line,
       };
     } else if (next.type === TokenType.NEWLINE) {
-      advance(ctx); // consume NEWLINE
+      advance(ctx);
       skipNewlines(ctx);
-      // Read indented content under this list item
       if (ctx.pos < ctx.tokens.length && ctx.tokens[ctx.pos].type === TokenType.INDENT) {
         advance(ctx);
         while (ctx.pos < ctx.tokens.length) {
@@ -228,6 +248,9 @@ function parseSequenceItem(ctx: ParseContext, indentLevel: number): ASTNode | nu
   return node;
 }
 
+/**
+ * Convierte un token escalar crudo en primitivos nativos de JavaScript (number, boolean, null, string).
+ */
 function parseScalar(ctx: ParseContext): string | number | boolean | null {
   if (ctx.pos >= ctx.tokens.length) return null;
   const token = ctx.tokens[ctx.pos];
@@ -245,6 +268,9 @@ function parseScalar(ctx: ParseContext): string | number | boolean | null {
   }
 }
 
+/**
+ * Predicado de ayuda que comprueba si un tipo de token representa un valor escalar primitivo.
+ */
 function isScalarType(type: TokenType): boolean {
   return [
     TokenType.STRING,
@@ -254,6 +280,9 @@ function isScalarType(type: TokenType): boolean {
   ].includes(type);
 }
 
+/**
+ * Avanza la posición del cursor omitiendo tokens de NEWLINE y COMMENT.
+ */
 function skipNewlines(ctx: ParseContext): void {
   while (ctx.pos < ctx.tokens.length &&
          (ctx.tokens[ctx.pos].type === TokenType.NEWLINE ||
@@ -262,6 +291,11 @@ function skipNewlines(ctx: ParseContext): void {
   }
 }
 
+/**
+ * Consume y retorna el token actual, incrementando el cursor en 1.
+ */
 function advance(ctx: ParseContext): Token {
   return ctx.tokens[ctx.pos++];
 }
+
+

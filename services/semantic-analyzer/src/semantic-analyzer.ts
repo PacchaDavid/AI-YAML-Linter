@@ -4,24 +4,33 @@ import { LintError } from '../../../shared/types/error';
 
 const ajv = new Ajv({ allErrors: true });
 
+/**
+ * Estructura de resultado devuelta por el componente Analizador Semántico.
+ */
 interface SemanticResult {
   valid: boolean;
   errors: LintError[];
 }
 
+/**
+ * @interface ValidationRule
+ * @pattern Interfaz del Patrón Strategy (Estrategia)
+ * @description Define el contrato para las estrategias de validación semántica personalizadas e intercambiables.
+ * Las reglas que la implementan evalúan nodos AST individuales en contexto sin alterar el motor principal del analizador.
+ */
 interface ValidationRule {
   name: string;
   code: string;
   validate: (node: ASTNode, path: string[], errors: LintError[]) => void;
 }
 
-// --- JSON Schema (ajv) based validation ---
-// Open-ended schema that catches common structural issues
+// --- Esquema de configuración de estructura JSON Schema (ajv) ---
 const configSchema = {
   type: 'object',
   additionalProperties: true,
-  properties: {        version: { oneOf: [{ type: 'string' }, { type: 'number' }] },
-        name: { type: 'string' },
+  properties: {
+    version: { oneOf: [{ type: 'string' }, { type: 'number' }] },
+    name: { type: 'string' },
     server: {
       type: 'object',
       additionalProperties: true,
@@ -62,7 +71,6 @@ const configSchema = {
   },
 };
 
-// Compile once; if compilation fails (invalid schema), catch gracefully
 let validateSchema: ReturnType<typeof ajv.compile> | null = null;
 try {
   validateSchema = ajv.compile(configSchema);
@@ -70,6 +78,9 @@ try {
   console.warn(`[Semantic] Schema compilation failed:`, err);
 }
 
+/**
+ * Traduce errores de validación de bajo nivel de AJV a mensajes legibles en español.
+ */
 function translateAjvError(err: { keyword?: string; message?: string; params?: Record<string, unknown> }): string {
   const keyword = err.keyword || '';
 
@@ -113,8 +124,12 @@ function translateAjvError(err: { keyword?: string; message?: string; params?: R
     .replace(/should\s+NOT\s+have\s+additional\s+properties/i, 'no debe tener propiedades adicionales');
 }
 
-// --- Strategy Pattern: Custom Validation Rules ---
+// --- Implementaciones de Estrategias ---
 
+/**
+ * Estrategia: Verificación de Tipos (Type Checking)
+ * Valida que los tipos de datos de los valores de las claves coincidan con las expectativas semánticas (ej. puertos/conteos deben ser numéricos, banderas deben ser booleanas).
+ */
 const typeCheckRule: ValidationRule = {
   name: 'Type Checking',
   code: 'SEM-002',
@@ -147,6 +162,10 @@ const typeCheckRule: ValidationRule = {
   },
 };
 
+/**
+ * Estrategia: Verificación de Rangos de Valores (Value Range Check)
+ * Valida rangos numéricos para atributos sensibles como puertos de red (1-65535) o porcentajes (0-100).
+ */
 const rangeCheckRule: ValidationRule = {
   name: 'Value Range Check',
   code: 'SEM-003',
@@ -179,6 +198,10 @@ const rangeCheckRule: ValidationRule = {
   },
 };
 
+/**
+ * Estrategia: Detección de Claves Duplicadas
+ * Detecta declaraciones de claves duplicadas dentro del mismo nivel de anidación de un objeto.
+ */
 const duplicateKeyRule: ValidationRule = {
   name: 'Duplicate Key Detection',
   code: 'SEM-005',
@@ -203,6 +226,10 @@ const duplicateKeyRule: ValidationRule = {
   },
 };
 
+/**
+ * Estrategia: Verificación de Valores Vacíos
+ * Detecta claves de mapeo definidas sin ningún valor ni nodo hijo asociado.
+ */
 const emptyValueRule: ValidationRule = {
   name: 'Empty Value Check',
   code: 'SEM-006',
@@ -218,6 +245,10 @@ const emptyValueRule: ValidationRule = {
   },
 };
 
+/**
+ * Estrategia: Convención de Nombres
+ * Advierte sobre el uso mixto de camelCase y snake_case dentro del mismo nombre de clave.
+ */
 const namingConventionRule: ValidationRule = {
   name: 'Naming Convention Check',
   code: 'SEM-007',
@@ -235,6 +266,7 @@ const namingConventionRule: ValidationRule = {
   },
 };
 
+/** Arreglo de estrategias de validación activas registradas */
 const allRules: ValidationRule[] = [
   typeCheckRule,
   rangeCheckRule,
@@ -243,8 +275,9 @@ const allRules: ValidationRule[] = [
   namingConventionRule,
 ];
 
-// --- Main Analyzer ---
-
+/**
+ * Convierte un nodo AST en un objeto JavaScript simple para evaluación contra JSON Schema de AJV.
+ */
 function astToRecord(node: ASTNode): Record<string, unknown> {
   const result: Record<string, unknown> = {};
   if (node.children) {
@@ -263,6 +296,15 @@ function astToRecord(node: ASTNode): Record<string, unknown> {
   return result;
 }
 
+/**
+ * @function semanticAnalyzer
+ * @pattern Ejecución del Patrón Strategy
+ * @description Realiza el análisis semántico de la Etapa 3 sobre un AST.
+ * Evalúa el AST contra reglas estructurales JSON Schema (AJV) y aplica todas las estrategias de validación registradas.
+ *
+ * @param ast Nodo raíz del Árbol de Sintaxis Abstracta.
+ * @returns Objeto que indica la validez semántica y lista los errores identificados.
+ */
 export function semanticAnalyzer(ast: ASTNode): SemanticResult {
   const errors: LintError[] = [];
 
@@ -270,7 +312,7 @@ export function semanticAnalyzer(ast: ASTNode): SemanticResult {
     return { valid: false, errors: [] };
   }
 
-  // --- ajv JSON Schema validation (structural checks) ---
+  // Evaluación de estructura mediante JSON Schema (ajv)
   if (validateSchema) {
     try {
       const record = astToRecord(ast);
@@ -296,7 +338,7 @@ export function semanticAnalyzer(ast: ASTNode): SemanticResult {
     }
   }
 
-  // --- Custom rule validation (Strategy pattern) ---
+  // Evaluación mediante estrategias personalizadas
   const nodesWithPaths: { node: ASTNode; path: string[] }[] = [];
   collectNodesWithPaths(ast, [], nodesWithPaths);
 
@@ -321,6 +363,9 @@ export function semanticAnalyzer(ast: ASTNode): SemanticResult {
   };
 }
 
+/**
+ * Recorre recursivamente el árbol AST para recolectar nodos junto con su ruta estructural de objetos.
+ */
 function collectNodesWithPaths(
   node: ASTNode,
   currentPath: string[],
@@ -335,3 +380,5 @@ function collectNodesWithPaths(
     }
   }
 }
+
+

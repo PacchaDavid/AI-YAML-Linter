@@ -1,6 +1,12 @@
 import { LintError } from '../../../shared/types/error';
 import { CircuitBreaker } from './circuit-breaker';
+import { Token } from '../../../shared/types/token';
+import { ASTNode } from '../../../shared/types/ast';
 
+/**
+ * Interfaz de adaptadores de servicios que define las firmas de comunicación HTTP/gRPC
+ * para interactuar con los microservicios aguas abajo.
+ */
 interface ServiceAdapters {
   lexer: { tokenize(content: string): Promise<{ tokens: unknown[]; errors: LintError[] }> };
   parser: { parse(tokens: unknown[]): Promise<{ ast: unknown; errors: LintError[] }> };
@@ -8,9 +14,9 @@ interface ServiceAdapters {
   explainer: { explain(error: LintError): Promise<{ explanation: string; cached: boolean }> };
 }
 
-import { Token } from '../../../shared/types/token';
-import { ASTNode } from '../../../shared/types/ast';
-
+/**
+ * Estructura del resultado devuelto por el Orquestador tras ejecutar la canalización de análisis.
+ */
 interface OrchestratorResult {
   valid: boolean;
   errors: LintError[];
@@ -19,15 +25,25 @@ interface OrchestratorResult {
   ast?: ASTNode | null;
 }
 
-// --- Builder Pattern for error report construction ---
+/**
+ * @pattern Patrón Builder (Constructor)
+ * @description Encapsula la construcción progresiva del reporte final de errores.
+ * Permite agregar errores de validación crudos y posteriormente enriquecerlos con explicaciones del LLM.
+ */
 class ErrorReportBuilder {
   private errors: LintError[] = [];
 
+  /**
+   * Agrega un nuevo error de análisis al reporte.
+   */
   addError(error: LintError): this {
     this.errors.push(error);
     return this;
   }
 
+  /**
+   * Asocia una explicación en lenguaje natural a un error específico mediante su índice.
+   */
   addExplanation(index: number, explanation: string): this {
     if (this.errors[index]) {
       this.errors[index] = { ...this.errors[index], explanation };
@@ -35,11 +51,21 @@ class ErrorReportBuilder {
     return this;
   }
 
+  /**
+   * Retorna una copia del arreglo del reporte final de errores construido.
+   */
   build(): LintError[] {
     return [...this.errors];
   }
 }
 
+/**
+ * @class Orchestrator
+ * @pattern Patrón Chain of Responsibility (Cadena de Responsabilidad) y Facade (Fachada)
+ * @description Coordina la canalización de validación YAML secuencial entre el Lexer, Parser y Analizador Semántico.
+ * Si cualquier etapa detecta errores, el procesamiento se detiene de inmediato (ejecución con cortocircuito) y los
+ * errores se envían al servicio Explainer para enriquecimiento con IA. Cada llamada a un servicio está protegida por un Circuit Breaker.
+ */
 export class Orchestrator {
   private services: ServiceAdapters;
   private lexerCB: CircuitBreaker;
@@ -55,12 +81,18 @@ export class Orchestrator {
     this.explainerCB = new CircuitBreaker();
   }
 
+  /**
+   * Ejecuta el pipeline de validación multietapa para el contenido YAML en bruto.
+   *
+   * @param content Cadena de texto YAML a analizar.
+   * @returns Resultado detallado del análisis incluyendo estado, etapa alcanzada, tokens, AST y errores enriquecidos.
+   */
   async analyze(content: string): Promise<OrchestratorResult> {
     console.log(`[Orchestrator] Starting analysis of ${content.length} chars`);
 
     const builder = new ErrorReportBuilder();
 
-    // Step 1: Chain of Responsibility — Lexer
+    // Etapa 1: Cadena de Responsabilidad — Análisis Léxico (Lexer)
     console.log('[Orchestrator] Step 1: Tokenizing...');
     const lexResult = await this.lexerCB.call(
       () => this.services.lexer.tokenize(content),
@@ -73,12 +105,12 @@ export class Orchestrator {
       console.log(`[Orchestrator] Lexer found ${lexResult.errors.length} errors`);
       lexResult.errors.forEach(e => builder.addError(e));
 
-      // Get explanations for lexical errors
+      // Enriquecer errores léxicos con explicaciones de IA
       await this.enrichErrors(builder, lexResult.errors);
       return { valid: false, errors: builder.build(), stage: 'lexical', tokens };
     }
 
-    // Step 2: Chain of Responsibility — Parser
+    // Etapa 2: Cadena de Responsabilidad — Análisis Sintáctico (Parser)
     console.log('[Orchestrator] Step 2: Parsing...');
     const parseResult = await this.parserCB.call(
       () => this.services.parser.parse(tokens),
@@ -95,7 +127,7 @@ export class Orchestrator {
       return { valid: false, errors: builder.build(), stage: 'syntactic', tokens, ast };
     }
 
-    // Step 3: Chain of Responsibility — Semantic Analyzer
+    // Etapa 3: Cadena de Responsabilidad — Análisis Semántico
     console.log('[Orchestrator] Step 3: Validating semantics...');
     const semanticResult = await this.semanticCB.call(
       () => this.services.semantic.validate(ast),
@@ -114,6 +146,12 @@ export class Orchestrator {
     return { valid: true, errors: [], stage: 'complete', tokens, ast };
   }
 
+  /**
+   * Solicita explicaciones en lenguaje natural para los errores detectados de forma concurrente.
+   *
+   * @param builder Instancia del constructor de reportes de errores.
+   * @param errors Lista de errores a enriquecer.
+   */
   private async enrichErrors(builder: ErrorReportBuilder, errors: LintError[]): Promise<void> {
     const enrichmentPromises = errors.map(async (error, index) => {
       try {
@@ -130,3 +168,5 @@ export class Orchestrator {
     await Promise.all(enrichmentPromises);
   }
 }
+
+

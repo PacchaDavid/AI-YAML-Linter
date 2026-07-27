@@ -6,6 +6,9 @@ import chalk from 'chalk';
 
 const ORCHESTRATOR_URL = process.env.ORCHESTRATOR_URL || 'http://localhost:4000';
 
+/**
+ * Estructura de un error de análisis recibido desde el servicio Orquestador.
+ */
 interface LintError {
   stage: string;
   code: string;
@@ -15,12 +18,18 @@ interface LintError {
   explanation?: string;
 }
 
+/**
+ * Estructura de la respuesta HTTP del endpoint `/analyze` del Orquestador.
+ */
 interface AnalyzeResponse {
   valid: boolean;
   errors: LintError[];
   stage: string;
 }
 
+/**
+ * Muestra el menú de ayuda y guía de uso de la herramienta de línea de comandos (CLI).
+ */
 function printUsage(): void {
   console.log(chalk.bold('\n📋 YAML Linter — Configuration Analysis Tool\n'));
   console.log(chalk.dim('Usage:'));
@@ -33,6 +42,11 @@ function printUsage(): void {
   console.log('  ORCHESTRATOR_URL    Orchestrator service URL (default: http://localhost:4000)\n');
 }
 
+/**
+ * Formatea e imprime una tabla de errores coloreada en consola.
+ *
+ * @param errors Lista de objetos LintError enriquecidos con explicaciones.
+ */
 function printErrorTable(errors: LintError[]): void {
   if (errors.length === 0) return;
 
@@ -64,6 +78,11 @@ function printErrorTable(errors: LintError[]): void {
   }
 }
 
+/**
+ * Lee un archivo YAML desde disco y lo envía al servicio Orquestador para su análisis.
+ *
+ * @param filePath Ruta relativa o absoluta hacia el archivo YAML a analizar.
+ */
 async function analyzeFile(filePath: string): Promise<void> {
   const resolvedPath = path.resolve(filePath);
 
@@ -112,7 +131,7 @@ async function analyzeFile(filePath: string): Promise<void> {
   }
 }
 
-// --- Main ---
+// --- Punto de Entrada Principal CLI ---
 const args = process.argv.slice(2);
 
 if (args.includes('--help') || args.includes('-h') || args.length === 0) {
@@ -128,3 +147,5 @@ if (fileIndex === -1 || !args[fileIndex + 1]) {
 }
 
 analyzeFile(args[fileIndex + 1]);
+
+
